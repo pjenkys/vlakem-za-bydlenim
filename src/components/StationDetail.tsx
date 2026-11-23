@@ -9,6 +9,9 @@ import {
   Layers,
   Banknote,
   Percent,
+  Sparkles,
+  ArrowRight,
+  Building,
 } from 'lucide-react';
 import { Station, HubInfo, HousingMode, ApartmentSize } from '../types';
 import {
@@ -24,6 +27,7 @@ interface StationDetailProps {
   mode: HousingMode;
   apartmentSize: ApartmentSize;
   onBack: () => void;
+  onOpenCaseStudy?: () => void;
 }
 
 export const StationDetail: React.FC<StationDetailProps> = ({
@@ -32,6 +36,7 @@ export const StationDetail: React.FC<StationDetailProps> = ({
   mode,
   apartmentSize,
   onBack,
+  onOpenCaseStudy,
 }) => {
   const connection = station.connections[hub.id];
 
@@ -100,6 +105,40 @@ export const StationDetail: React.FC<StationDetailProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Highlighted Case Study Banner for Lovosice */}
+        {station.id === 'lovosice' && onOpenCaseStudy && (
+          <div className="bg-gradient-to-r from-navy to-navy-dark text-white rounded-xl p-4 shadow-md space-y-2.5 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                Doporučený modelový příklad
+              </span>
+              <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-white/90">
+                210 m od nádraží
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                <Building className="w-4 h-4 text-emerald-300 flex-shrink-0" />
+                <span>Byt 2+1 (53 m²) v Lovosicích za 3 190 000 Kč</span>
+              </h3>
+              <p className="text-xs text-white/80 leading-relaxed">
+                Podívejte se na kompletní kalkulaci reálného inzerátu z Terezínské ulice: splátka hypotéky,
+                daňová vratka, spolubydlení, síťová jízdenka IN 100 a refinancování za 3 roky.
+              </p>
+            </div>
+
+            <button
+              onClick={onOpenCaseStudy}
+              className="w-full mt-1 py-2 px-3 bg-white text-navy font-bold text-xs rounded-lg hover:bg-paper transition-all flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <span>Otevřít podrobný modelový příklad</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Card 1 — Železniční spojení */}

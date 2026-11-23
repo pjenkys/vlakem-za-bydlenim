@@ -1,0 +1,1429 @@
+import React, { useState, useMemo } from 'react';
+import {
+  ArrowLeft,
+  Train,
+  Home,
+  MapPin,
+  Clock,
+  Sparkles,
+  ShieldCheck,
+  TrendingUp,
+  Percent,
+  CheckCircle2,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  Sliders,
+  Award,
+  ArrowRight,
+  Settings2,
+} from 'lucide-react';
+import {
+  CASE_STUDY_LISTING,
+  CASE_STUDY_LOCATION,
+} from '../data/caseStudyLovosice';
+import {
+  calculateCommutingCosts,
+  calculateMortgageDetails,
+  calculateMortgageTaxRefundMonthly,
+  calculateThreeYearProjection,
+  MonthlyExpensesBreakdown,
+  MonthlyIncomeBreakdown,
+} from '../utils/caseStudyMath';
+import { CaseStudyWalkingMap } from './CaseStudyWalkingMap';
+import { formatCzechNumber } from '../utils/calculations';
+
+interface CaseStudyPageProps {
+  onBackToMap: () => void;
+}
+
+export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => {
+  // --- Photo Gallery State ---
+  const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+
+  // --- Commute State ---
+  const [tripsPerWeek, setTripsPerWeek] = useState(3);
+  const [workingWeeks, setWorkingWeeks] = useState<46 | 50>(46);
+  const [in100Optimized, setIn100Optimized] = useState(true);
+
+  // --- Financing & Mortgage State ---
+  const [purchasePrice, setPurchasePrice] = useState(CASE_STUDY_LISTING.priceCzk);
+  const [downPaymentPercent, setDownPaymentPercent] = useState<10 | 20>(10);
+  const [interestRate, setInterestRate] = useState(4.7);
+
+  // --- Operating Expenses State (defaults based on listing & Lovosice reality) ---
+  const [expensesCollapsed, setExpensesCollapsed] = useState(false);
+  const [hoaRepairFund, setHoaRepairFund] = useState(CASE_STUDY_LISTING.hoaRepairFundCzk);
+  const [heatingAndHotWater, setHeatingAndHotWater] = useState(1800);
+  const [waterAndSewer, setWaterAndSewer] = useState(700);
+  const [electricity, setElectricity] = useState(1300);
+  const [gas, setGas] = useState(0);
+  const [hoaServicesAndAdmin, setHoaServicesAndAdmin] = useState(650);
+  const [insurance, setInsurance] = useState(300);
+  const [internetAndFees, setInternetAndFees] = useState(700);
+  const [propertyTaxMonthly, setPropertyTaxMonthly] = useState(120);
+  const [includeMaintenanceReserve, setIncludeMaintenanceReserve] = useState(true);
+  const maintenanceReserveAmount = includeMaintenanceReserve ? 500 : 0;
+
+  // --- Room Rental State ---
+  const [rentOutRoom, setRentOutRoom] = useState(true);
+  const [roomRentAmount, setRoomRentAmount] = useState(6000);
+  const [deductRoomRentTax, setDeductRoomRentTax] = useState(true);
+
+  // --- 3-Year Projection State ---
+  const [wagePreset, setWagePreset] = useState<'prague' | 'cr' | 'custom'>('prague');
+  const [customNetWage, setCustomNetWage] = useState(51060);
+  const [wageGrowthRate, setWageGrowthRate] = useState(5.5);
+  const [refinancingRate, setRefinancingRate] = useState(4.4);
+  const [costInflationRate] = useState(2.5);
+
+  // Active net wage in 2026
+  const activeNetWage = useMemo(() => {
+    if (wagePreset === 'prague') return 51060; // 66 459 Kč hrubého (ČSÚ 2Q 2026 Praha)
+    if (wagePreset === 'cr') return 40710; // 51 966 Kč hrubého (ČSÚ 2Q 2026 ČR)
+    return customNetWage;
+  }, [wagePreset, customNetWage]);
+
+  // 1. Commute Calculations
+  const commute = useMemo(() => {
+    return calculateCommutingCosts(tripsPerWeek, workingWeeks, in100Optimized);
+  }, [tripsPerWeek, workingWeeks, in100Optimized]);
+
+  // 2. Mortgage Calculations
+  const mortgage = useMemo(() => {
+    return calculateMortgageDetails(
+      purchasePrice,
+      downPaymentPercent,
+      interestRate,
+      refinancingRate,
+      360
+    );
+  }, [purchasePrice, downPaymentPercent, interestRate, refinancingRate]);
+
+  // 3. Tax Refund (§ 15 ZDP)
+  const taxRefund = useMemo(() => {
+    return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear1);
+  }, [mortgage.interestPaidYear1]);
+
+  const year4TaxRefund = useMemo(() => {
+    return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear4);
+  }, [mortgage.interestPaidYear4]);
+
+  // 4. Room Rental Net Income
+  const roomRentNet = useMemo(() => {
+    if (!rentOutRoom) return 0;
+    if (!deductRoomRentTax) return roomRentAmount;
+    // 30% expenditure pause -> 70% taxable base * 15% tax = 10.5% effective tax on pure rent
+    // Assume 75% of payment is pure rent and 25% is energy advance
+    const pureRentPart = Math.round(roomRentAmount * 0.75);
+    const tax = Math.round(pureRentPart * 0.7 * 0.15);
+    return roomRentAmount - tax;
+  }, [rentOutRoom, roomRentAmount, deductRoomRentTax]);
+
+  const roomRentTaxMonthly = useMemo(() => {
+    if (!rentOutRoom || !deductRoomRentTax) return 0;
+    return roomRentAmount - roomRentNet;
+  }, [rentOutRoom, deductRoomRentTax, roomRentAmount, roomRentNet]);
+
+  // 5. Monthly Expenses Summary
+  const monthlyExpenses: MonthlyExpensesBreakdown = useMemo(() => {
+    const total =
+      mortgage.monthlyPayment +
+      hoaRepairFund +
+      heatingAndHotWater +
+      waterAndSewer +
+      electricity +
+      gas +
+      hoaServicesAndAdmin +
+      insurance +
+      internetAndFees +
+      propertyTaxMonthly +
+      maintenanceReserveAmount +
+      commute.effectiveMonthlyCost;
+
+    return {
+      mortgagePayment: mortgage.monthlyPayment,
+      hoaRepairFund,
+      heatingAndHotWater,
+      waterAndSewer,
+      electricity,
+      gas,
+      hoaServicesAndAdmin,
+      insurancePropertyAndHome: insurance,
+      internetAndBroadcastFees: internetAndFees,
+      propertyTaxMonthly,
+      apartmentMaintenanceReserve: maintenanceReserveAmount,
+      trainCommuteMonthly: commute.effectiveMonthlyCost,
+      totalGrossExpenses: total,
+    };
+  }, [
+    mortgage.monthlyPayment,
+    hoaRepairFund,
+    heatingAndHotWater,
+    waterAndSewer,
+    electricity,
+    gas,
+    hoaServicesAndAdmin,
+    insurance,
+    internetAndFees,
+    propertyTaxMonthly,
+    maintenanceReserveAmount,
+    commute.effectiveMonthlyCost,
+  ]);
+
+  // 6. Monthly Incomes Summary
+  const monthlyIncomes: MonthlyIncomeBreakdown = useMemo(() => {
+    const total = taxRefund.monthlyRefund + roomRentNet;
+    return {
+      mortgageTaxRefundMonthly: taxRefund.monthlyRefund,
+      roomRentGross: rentOutRoom ? roomRentAmount : 0,
+      roomRentTaxMonthly,
+      roomRentNet,
+      totalIncomeAndOffsets: total,
+    };
+  }, [taxRefund.monthlyRefund, rentOutRoom, roomRentAmount, roomRentTaxMonthly, roomRentNet]);
+
+  // Net monthly out-of-pocket cost
+  const netMonthlyCost = useMemo(() => {
+    return monthlyExpenses.totalGrossExpenses - monthlyIncomes.totalIncomeAndOffsets;
+  }, [monthlyExpenses.totalGrossExpenses, monthlyIncomes.totalIncomeAndOffsets]);
+
+  // 7. 3-Year Horizon Projection
+  const projection = useMemo(() => {
+    return calculateThreeYearProjection(
+      activeNetWage,
+      wageGrowthRate,
+      monthlyExpenses,
+      monthlyIncomes,
+      mortgage.refinancedMonthlyPayment,
+      year4TaxRefund.monthlyRefund,
+      costInflationRate
+    );
+  }, [
+    activeNetWage,
+    wageGrowthRate,
+    monthlyExpenses,
+    monthlyIncomes,
+    mortgage.refinancedMonthlyPayment,
+    year4TaxRefund.monthlyRefund,
+    costInflationRate,
+  ]);
+
+  return (
+    <div className="w-full h-full overflow-y-auto bg-paper text-ink pb-20 selection:bg-navy selection:text-white">
+      {/* Top Breadcrumb & Return Bar */}
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-hairline px-4 py-2.5 md:px-8 shadow-2xs flex items-center justify-between">
+        <button
+          onClick={onBackToMap}
+          className="inline-flex items-center gap-2 text-xs font-bold text-navy hover:text-navy-dark transition-colors px-3 py-1.5 rounded-lg border border-hairline hover:bg-paper"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Zpět na celostátní mapu</span>
+        </button>
+
+        <div className="flex items-center gap-2 text-xs text-ink-muted">
+          <span className="hidden sm:inline">Modelový příklad:</span>
+          <span className="font-bold text-ink">Lovosice · Terezínská 351/83</span>
+          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-price-tier1 border border-price-tier1/20 hidden md:inline">
+            Reálná nabídka Sreality 2026
+          </span>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 space-y-8">
+        {/* ========================================================================= */}
+        {/* HERO SECTION */}
+        {/* ========================================================================= */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-navy text-white">
+              Hloubková případová studie
+            </span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white text-ink-muted border border-hairline">
+              Ústecký kraj · okres Litoměřice
+            </span>
+            <a
+              href={CASE_STUDY_LISTING.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-navy hover:underline inline-flex items-center gap-1 ml-auto"
+            >
+              <span>Zobrazit inzerát na Sreality.cz</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
+          <div>
+            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-ink font-sans">
+              Byt 2+1 (53 m²) 3 minuty pěšky od nádraží Lovosice
+            </h1>
+            <p className="text-sm md:text-base text-ink-muted mt-1 max-w-3xl leading-relaxed">
+              Kompletní rozpad osobních financí, daňových úlev, nákladů na dojíždění rychlíkem do Prahy,
+              spolubydlení a 3letého refinancování na reálném bytě v Terezínské ulici.
+            </p>
+          </div>
+
+          {/* 4 Hero KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+            <div className="bg-white rounded-xl border border-hairline p-4 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted block mb-1">
+                Kupní cena nemovitosti
+              </span>
+              <div className="text-xl md:text-2xl font-mono font-extrabold text-ink tabular-nums">
+                {formatCzechNumber(purchasePrice)}&nbsp;Kč
+              </div>
+              <div className="text-[11px] font-mono text-price-tier2 font-semibold mt-0.5">
+                {formatCzechNumber(CASE_STUDY_LISTING.priceCzkPerSqm)} Kč / m²
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-hairline p-4 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted block mb-1 flex items-center gap-1">
+                <Train className="w-3.5 h-3.5 text-navy" />
+                Dojezd do Prahy hl.n.
+              </span>
+              <div className="text-xl md:text-2xl font-mono font-extrabold text-navy tabular-nums">
+                68 min
+              </div>
+              <div className="text-[11px] text-ink-muted mt-0.5">
+                Rychlík R20 Labe (každou hodinu)
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-hairline p-4 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted block mb-1 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                Vzdálenost k vlaku
+              </span>
+              <div className="text-xl md:text-2xl font-mono font-extrabold text-price-tier1 tabular-nums">
+                3 minuty
+              </div>
+              <div className="text-[11px] text-ink-muted mt-0.5">
+                Přesně 210 m po rovině
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-hairline p-4 shadow-xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted block mb-1 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-navy" />
+                Poslední vlak z Prahy
+              </span>
+              <div className="text-xl md:text-2xl font-mono font-extrabold text-navy tabular-nums">
+                23:41
+              </div>
+              <div className="text-[11px] text-emerald-800 font-semibold mt-0.5">
+                Stíháte večeři, divadlo i pivo
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 1: PHOTO GALLERY & SREALITY DATA SNAPSHOT */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
+              <Home className="w-4 h-4 text-navy" />
+              <span>Parametry bytu a fotogalerie nabídky</span>
+            </h2>
+            <span className="text-xs font-mono font-semibold text-ink-muted bg-paper px-2 py-0.5 rounded border border-hairline">
+              Kód: {CASE_STUDY_LISTING.id}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Gallery Column (7 cols) */}
+            <div className="lg:col-span-7 space-y-3">
+              <div className="relative aspect-[16/10] w-full rounded-xl overflow-hidden bg-paper border border-hairline">
+                <img
+                  src={CASE_STUDY_LISTING.images[selectedPhotoIdx].url}
+                  alt={CASE_STUDY_LISTING.images[selectedPhotoIdx].caption}
+                  className="w-full h-full object-cover transition-all duration-300"
+                  onError={(e) => {
+                    // Fallback to architectural placeholder if external CDN expires
+                    (e.target as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80';
+                  }}
+                />
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink/80 via-ink/40 to-transparent p-3 text-white text-xs">
+                  {CASE_STUDY_LISTING.images[selectedPhotoIdx].caption}
+                </div>
+              </div>
+
+              {/* Thumbnails */}
+              <div className="grid grid-cols-5 gap-2">
+                {CASE_STUDY_LISTING.images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedPhotoIdx(idx)}
+                    className={`relative aspect-[16/10] rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedPhotoIdx === idx
+                        ? 'border-navy shadow-sm scale-[1.02]'
+                        : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Structured Specifications Grid (5 cols) */}
+            <div className="lg:col-span-5 space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2.5 bg-paper rounded-lg border border-hairline">
+                  <span className="text-[10px] uppercase font-bold text-ink-muted block">
+                    Dispozice & plocha
+                  </span>
+                  <span className="font-bold text-ink text-sm">2+1 (53 m²)</span>
+                  <span className="text-[10px] text-ink-muted block mt-0.5">
+                    + sklep 4,7 m² + balkon
+                  </span>
+                </div>
+
+                <div className="p-2.5 bg-paper rounded-lg border border-hairline">
+                  <span className="text-[10px] uppercase font-bold text-ink-muted block">
+                    Podlaží & budova
+                  </span>
+                  <span className="font-bold text-ink text-sm">2. NP ze 4</span>
+                  <span className="text-[10px] text-ink-muted block mt-0.5">
+                    Revitalizovaný dům, nová fasáda
+                  </span>
+                </div>
+
+                <div className="p-2.5 bg-paper rounded-lg border border-hairline">
+                  <span className="text-[10px] uppercase font-bold text-ink-muted block">
+                    Vlastnictví & PENB
+                  </span>
+                  <span className="font-bold text-ink text-sm">Osobní · Třída C</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+                    Nízké energetické ztráty
+                  </span>
+                </div>
+
+                <div className="p-2.5 bg-paper rounded-lg border border-hairline">
+                  <span className="text-[10px] uppercase font-bold text-ink-muted block">
+                    Fond oprav (SVJ)
+                  </span>
+                  <span className="font-mono font-bold text-ink text-sm">1 400 Kč / měs.</span>
+                  <span className="text-[10px] text-ink-muted block mt-0.5">
+                    Zdravé SVJ, bez plánu navýšení
+                  </span>
+                </div>
+
+                <div className="p-2.5 bg-paper rounded-lg border border-hairline col-span-2">
+                  <span className="text-[10px] uppercase font-bold text-ink-muted block">
+                    Vytápění & orientace
+                  </span>
+                  <span className="font-semibold text-ink">
+                    Dálkové ústřední vytápění a ohřev TUV · Jižní orientace oken
+                  </span>
+                </div>
+              </div>
+
+              {/* Collapsible Original Description */}
+              <div className="border border-hairline rounded-lg p-3 bg-paper/40 space-y-2">
+                <button
+                  onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+                  className="w-full flex items-center justify-between text-xs font-bold text-navy hover:text-navy-dark"
+                >
+                  <span>Původní popis makléře z inzerátu</span>
+                  {descriptionExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+                {descriptionExpanded && (
+                  <p className="text-xs text-ink-muted leading-relaxed whitespace-pre-line pt-1 border-t border-hairline">
+                    {CASE_STUDY_LISTING.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* SECTION 2: VERIFIED LOCATION & 210 M WALKING MAP */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <div>
+              <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-price-tier1" />
+                <span>Pěší trasa: 3 minuty z perónu až do obýváku</span>
+              </h2>
+              <p className="text-xs text-ink-muted mt-0.5">
+                {CASE_STUDY_LOCATION.address} ({CASE_STUDY_LOCATION.svjName})
+              </p>
+            </div>
+            <span className="text-xs font-mono font-bold text-price-tier1 bg-emerald-50 px-2.5 py-1 rounded-md border border-price-tier1/20">
+              210 m po rovině
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-7">
+              <CaseStudyWalkingMap />
+            </div>
+
+            <div className="lg:col-span-5 space-y-3 text-xs leading-relaxed">
+              <div className="p-3.5 rounded-xl bg-paper border border-hairline space-y-2">
+                <h3 className="font-bold text-sm text-navy flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4" />
+                  Proč jsou 3 minuty chůze zásadní faktor?
+                </h3>
+                <p className="text-ink-muted">
+                  Většina dojíždějících v Praze stráví 15 až 25 minut pouhou cestou na stanici metra
+                  nebo čekáním na příměstský autobus. Zde vyjdete z bytu a za 180 sekund sedíte ve vlaku.
+                </p>
+              </div>
+
+              <div className="space-y-2 text-ink-muted">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Nulové náklady na MHD v Lovosicích:</strong> Žádné auto, žádná parkovací
+                    stání u nádraží, žádná předplatní jízdenka na místní autobusy.
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Komfortní noční návrat:</strong> Poslední přímý vlak z Prahy hl.n. odjíždí
+                    ve <strong>23:41</strong>. V Lovosicích jste v 00:49 a za 3 minuty ležíte v posteli.
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Práce ve vlaku:</strong> Rychlíky R20 nabízejí zásuvky 230V a Wi-Fi. 68 minut
+                    jízdy se započítává do produktivního pracovního času.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* SECTION 3: INTERACTIVE COMMUTING CALCULATOR (IN 50 vs. IN 100) */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <div>
+              <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
+                <Train className="w-4 h-4 text-navy" />
+                <span>Kalkulátor dojíždění vlakem do Prahy (IN 50 vs. IN 100)</span>
+              </h2>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Chytré porovnání slevové karty IN 50 a neomezené celosíťové jízdenky IN 100
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 bg-paper p-1 rounded-lg border border-hairline text-xs font-semibold">
+              <span className="text-[10px] text-ink-muted px-1">Týdnů/rok:</span>
+              <button
+                onClick={() => setWorkingWeeks(46)}
+                className={`px-2 py-0.5 rounded transition-all ${
+                  workingWeeks === 46 ? 'bg-navy text-white' : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                46 (dovolená)
+              </button>
+              <button
+                onClick={() => setWorkingWeeks(50)}
+                className={`px-2 py-0.5 rounded transition-all ${
+                  workingWeeks === 50 ? 'bg-navy text-white' : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                50
+              </button>
+            </div>
+          </div>
+
+          {/* Interactive Controls & Cards */}
+          <div className="space-y-4">
+            <div className="p-4 bg-paper rounded-xl border border-hairline space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ink">
+                  Počet cest do Prahy a zpět týdně (hybridní režim):
+                </label>
+                <span className="text-sm font-mono font-bold text-navy bg-white px-2.5 py-1 rounded-md border border-hairline">
+                  {tripsPerWeek}× týdně ({tripsPerWeek * workingWeeks} cest za rok)
+                </span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={7}
+                step={1}
+                value={tripsPerWeek}
+                onChange={(e) => setTripsPerWeek(Number(e.target.value))}
+                className="w-full h-2 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
+              />
+              <div className="flex justify-between text-[10px] text-ink-muted font-mono">
+                <span>1× (1 den v týdnu)</span>
+                <span>3× (typický hybrid)</span>
+                <span>5× (denní dojíždění)</span>
+                <span>7× (víkendy)</span>
+              </div>
+            </div>
+
+            {/* Smart Optimization Banner (if IN 50 > 22 000 Kč) */}
+            {commute.shouldRecommendIn100 && (
+              <div className="p-4 bg-emerald-50 border border-price-tier1/30 rounded-xl space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles className="w-5 h-5 text-price-tier1 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-xs md:text-sm text-price-tier1">
+                        Doporučení: Vyplatí se přejít na celosíťovou jízdenku IN 100!
+                      </h4>
+                      <p className="text-xs text-ink/80 mt-0.5 leading-relaxed">
+                        Při {tripsPerWeek} cestách týdně byste s kartou IN 50 zaplatili{' '}
+                        <strong>{formatCzechNumber(commute.in50AnnualCost)} Kč/rok</strong>. Síťová
+                        jízdenka <strong>IN 100 stojí pevně 22 000 Kč/rok</strong> — ušetříte{' '}
+                        <strong>{formatCzechNumber(commute.annualSavingsWithIn100)} Kč ročně</strong> a
+                        navíc máte všechny vlaky ČD po celé ČR (včetně víkendů a výletů) zcela zdarma!
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-price-tier1/30 text-xs font-bold text-price-tier1 flex-shrink-0 select-none shadow-2xs">
+                    <input
+                      type="checkbox"
+                      checked={in100Optimized}
+                      onChange={(e) => setIn100Optimized(e.target.checked)}
+                      className="accent-emerald-700 w-4 h-4 cursor-pointer"
+                    />
+                    <span>Zastropovat na 22 000 Kč</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Side-by-side comparison cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div
+                className={`p-4 rounded-xl border transition-all ${
+                  !commute.shouldRecommendIn100 || !in100Optimized
+                    ? 'bg-white border-navy ring-1 ring-navy/20 shadow-xs'
+                    : 'bg-paper/60 border-hairline text-ink-muted'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-hairline">
+                  <span className="font-bold text-xs text-ink uppercase tracking-wider">
+                    Varianta A: Karta IN 50 (50 % sleva)
+                  </span>
+                  <span className="text-[10px] font-mono font-medium">3 200 Kč karta + 169 Kč jízda</span>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>Měsíční náklad (průměr):</span>
+                    <span className="font-mono font-bold text-ink">
+                      {formatCzechNumber(commute.in50MonthlyCost)} Kč / měs.
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Celkem za rok ({workingWeeks} týdnů):</span>
+                    <span className="font-mono font-semibold text-ink">
+                      {formatCzechNumber(commute.in50AnnualCost)} Kč / rok
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className={`p-4 rounded-xl border transition-all ${
+                  commute.shouldRecommendIn100 && in100Optimized
+                    ? 'bg-white border-price-tier1 ring-1 ring-price-tier1/20 shadow-xs'
+                    : 'bg-paper/60 border-hairline text-ink-muted'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-hairline">
+                  <span className="font-bold text-xs text-price-tier1 uppercase tracking-wider">
+                    Varianta B: Celosíťová IN 100 (100 % sleva)
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-price-tier1 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    Doporučeno
+                  </span>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>Měsíční náklad (pevný):</span>
+                    <span className="font-mono font-bold text-price-tier1">
+                      {formatCzechNumber(commute.in100MonthlyCost)} Kč / měs.
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Celkem za rok (neomezeně):</span>
+                    <span className="font-mono font-semibold text-price-tier1">
+                      {formatCzechNumber(commute.in100AnnualCost)} Kč / rok
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Break-even Table Mini Strip */}
+            <div className="overflow-x-auto border border-hairline rounded-lg">
+              <table className="w-full text-[11px] text-left">
+                <thead className="bg-paper text-ink-muted border-b border-hairline font-semibold">
+                  <tr>
+                    <th className="py-2 px-3">Cest týdně</th>
+                    <th className="py-2 px-3">IN 50 ročně</th>
+                    <th className="py-2 px-3">IN 100 ročně</th>
+                    <th className="py-2 px-3">Doporučená volba</th>
+                    <th className="py-2 px-3 text-right">Rozdíl</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline font-mono tabular-nums">
+                  {commute.breakEvenTable.map((row) => (
+                    <tr
+                      key={row.trips}
+                      className={row.trips === tripsPerWeek ? 'bg-navy/5 font-bold' : ''}
+                    >
+                      <td className="py-1.5 px-3">{row.trips}× / týden</td>
+                      <td className="py-1.5 px-3">{formatCzechNumber(row.in50Annual)} Kč</td>
+                      <td className="py-1.5 px-3">{formatCzechNumber(row.in100Annual)} Kč</td>
+                      <td className="py-1.5 px-3 font-sans font-semibold">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] ${
+                            row.recommended === 'IN 100'
+                              ? 'bg-emerald-50 text-price-tier1'
+                              : 'bg-paper text-ink'
+                          }`}
+                        >
+                          {row.recommended}
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-3 text-right">
+                        {row.diff > 0 ? (
+                          <span className="text-price-tier1">
+                            +{formatCzechNumber(row.diff)} Kč úspora s IN 100
+                          </span>
+                        ) : (
+                          <span className="text-ink-muted">
+                            {formatCzechNumber(row.diff)} Kč
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* SECTION 4: FULL MONTHLY CASHFLOW BREAKDOWN */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-6">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <div>
+              <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-navy" />
+                <span>Podrobný rozpad měsíčního cashflow (Výdaje vs. Příjmy)</span>
+              </h2>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Všechny reálné položky nákladů na vlastnictví bytu 2+1 v Lovosicích a dojíždění
+              </p>
+            </div>
+          </div>
+
+          {/* Financing Setup Parameters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-paper rounded-xl border border-hairline text-xs">
+            {/* Purchase price */}
+            <div className="space-y-1">
+              <label className="font-bold text-ink block">Kupní cena nemovitosti:</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step={50000}
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(Number(e.target.value))}
+                  className="w-full bg-white border border-hairline rounded-lg px-3 py-1.5 font-mono font-bold text-ink focus:outline-none focus:border-navy"
+                />
+                <span className="text-ink-muted font-medium">Kč</span>
+              </div>
+            </div>
+
+            {/* Down payment LTV toggle */}
+            <div className="space-y-1">
+              <label className="font-bold text-ink block">Vlastní zdroje (LTV):</label>
+              <div className="grid grid-cols-2 gap-1 bg-white p-0.5 rounded-lg border border-hairline">
+                <button
+                  onClick={() => setDownPaymentPercent(10)}
+                  className={`py-1.5 px-2 font-semibold rounded text-[11px] transition-all ${
+                    downPaymentPercent === 10
+                      ? 'bg-navy text-white shadow-2xs'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  10 % (LTV 90 % do 36 let)
+                </button>
+                <button
+                  onClick={() => setDownPaymentPercent(20)}
+                  className={`py-1.5 px-2 font-semibold rounded text-[11px] transition-all ${
+                    downPaymentPercent === 20
+                      ? 'bg-navy text-white shadow-2xs'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  20 % (LTV 80 % standard)
+                </button>
+              </div>
+              <span className="text-[10px] text-ink-muted block mt-0.5">
+                Vlastní hotovost: <strong>{formatCzechNumber(mortgage.downPaymentCzk)} Kč</strong> + katastr 2 000 Kč
+              </span>
+            </div>
+
+            {/* Interest rate slider */}
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <label className="font-bold text-ink">Úroková sazba hypotéky:</label>
+                <span className="font-mono font-bold text-navy">{interestRate.toFixed(1)} % p.a.</span>
+              </div>
+              <input
+                type="range"
+                min={3.5}
+                max={6.5}
+                step={0.1}
+                value={interestRate}
+                onChange={(e) => setInterestRate(Number(e.target.value))}
+                className="w-full h-1.5 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
+              />
+              <div className="flex justify-between text-[10px] text-ink-muted font-mono">
+                <span>3.5 %</span>
+                <span>4.7 % (2026 průměr)</span>
+                <span>6.5 %</span>
+              </div>
+            </div>
+          </div>
+
+          {/* TWO COLUMNS: EXPENSES vs INCOMES */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            {/* Column A: EXPENSES */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-hairline">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-price-tier4 flex items-center gap-1.5">
+                  <span>Měsíční výdaje (bydlení + vlak)</span>
+                </h3>
+                <span className="font-mono font-bold text-sm text-price-tier4 tabular-nums">
+                  {formatCzechNumber(monthlyExpenses.totalGrossExpenses)} Kč / měs.
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                {/* 1. Mortgage payment */}
+                <div className="p-3 bg-paper rounded-lg border border-hairline space-y-1">
+                  <div className="flex justify-between font-bold text-ink">
+                    <span>1. Splátka hypotéky (anuitní):</span>
+                    <span className="font-mono text-sm">
+                      {formatCzechNumber(mortgage.monthlyPayment)} Kč / měs.
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-ink-muted flex justify-between font-mono">
+                    <span>Z toho úrok v 1. roce (průměr):</span>
+                    <span>{formatCzechNumber(Math.round(mortgage.interestPaidYear1 / 12))} Kč</span>
+                  </div>
+                  <div className="text-[10px] text-price-tier1 flex justify-between font-mono font-semibold">
+                    <span>Z toho splátka jistiny (tvorba majetku):</span>
+                    <span>+{formatCzechNumber(mortgage.averageMonthlyPrincipalYear1)} Kč / měs.</span>
+                  </div>
+                </div>
+
+                {/* HOA & Utilities List */}
+                <div className="p-3 bg-white rounded-lg border border-hairline space-y-2">
+                  <div className="flex items-center justify-between pb-1 border-b border-hairline">
+                    <span className="text-[10px] uppercase font-bold text-ink-muted">
+                      Provozní poplatky & energie
+                    </span>
+                    <button
+                      onClick={() => setExpensesCollapsed(!expensesCollapsed)}
+                      className="text-[11px] font-semibold text-navy hover:underline flex items-center gap-1"
+                    >
+                      <Settings2 className="w-3 h-3" />
+                      <span>{expensesCollapsed ? 'Zobrazit editaci částek' : 'Upravit částky'}</span>
+                    </button>
+                  </div>
+
+                  {expensesCollapsed ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">2. Fond oprav SVJ:</span>
+                        <input
+                          type="number"
+                          step={50}
+                          value={hoaRepairFund}
+                          onChange={(e) => setHoaRepairFund(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">3. Dálkové teplo & TUV:</span>
+                        <input
+                          type="number"
+                          step={100}
+                          value={heatingAndHotWater}
+                          onChange={(e) => setHeatingAndHotWater(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">4. Vodné a stočné:</span>
+                        <input
+                          type="number"
+                          step={50}
+                          value={waterAndSewer}
+                          onChange={(e) => setWaterAndSewer(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">5. Elektřina byt:</span>
+                        <input
+                          type="number"
+                          step={50}
+                          value={electricity}
+                          onChange={(e) => setElectricity(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">6. Plyn (vaření):</span>
+                        <input
+                          type="number"
+                          step={50}
+                          value={gas}
+                          onChange={(e) => setGas(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">7. Služby SVJ & správa:</span>
+                        <input
+                          type="number"
+                          step={50}
+                          value={hoaServicesAndAdmin}
+                          onChange={(e) => setHoaServicesAndAdmin(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">8. Pojištění nemovitosti:</span>
+                        <input
+                          type="number"
+                          step={50}
+                          value={insurance}
+                          onChange={(e) => setInsurance(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">9. Internet & koncese:</span>
+                        <input
+                          type="number"
+                          step={50}
+                          value={internetAndFees}
+                          onChange={(e) => setInternetAndFees(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-ink">10. Daň z nemovitostí:</span>
+                        <input
+                          type="number"
+                          step={10}
+                          value={propertyTaxMonthly}
+                          onChange={(e) => setPropertyTaxMonthly(Number(e.target.value))}
+                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">2. Fond oprav SVJ (z inzerátu):</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(hoaRepairFund)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">3. Dálkové teplo a ohřev TUV:</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(heatingAndHotWater)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">4. Vodné a stočné:</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(waterAndSewer)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">5. Elektřina byt:</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(electricity)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">6. Plyn (vaření):</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(gas)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">7. Služby SVJ & správa domu:</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(hoaServicesAndAdmin)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">8. Pojištění nemovitosti & domácnosti:</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(insurance)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">9. Internet + TV/rozhlas poplatky:</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(internetAndFees)} Kč</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-ink">10. Daň z nemovitých věcí (rozpočet):</span>
+                        <span className="font-mono font-medium">{formatCzechNumber(propertyTaxMonthly)} Kč</span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1 border-t border-hairline">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-ink font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={includeMaintenanceReserve}
+                        onChange={(e) => setIncludeMaintenanceReserve(e.target.checked)}
+                        className="accent-navy"
+                      />
+                      <span>11. Rezerva na údržbu bytu:</span>
+                    </label>
+                    <span className="font-mono font-medium">{formatCzechNumber(maintenanceReserveAmount)} Kč</span>
+                  </div>
+                </div>
+
+                {/* Train commute item */}
+                <div className="p-3 bg-navy/5 rounded-lg border border-navy/20 flex items-center justify-between font-bold text-navy">
+                  <span>12. Dojíždění vlakem do Prahy ({tripsPerWeek}× týdně):</span>
+                  <span className="font-mono text-sm">
+                    {formatCzechNumber(commute.effectiveMonthlyCost)} Kč / měs.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Column B: INCOMES & TAX OFFSETS */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-hairline">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-price-tier1 flex items-center gap-1.5">
+                  <span>Příjmy a daňové úlevy</span>
+                </h3>
+                <span className="font-mono font-bold text-sm text-price-tier1 tabular-nums">
+                  -{formatCzechNumber(monthlyIncomes.totalIncomeAndOffsets)} Kč / měs.
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                {/* 1. Mortgage tax refund (§ 15 ZDP) */}
+                <div className="p-3.5 bg-emerald-50/70 rounded-xl border border-price-tier1/20 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-price-tier1 text-sm">
+                      1. Daňová vratka z úroků hypotéky (§ 15 ZDP):
+                    </span>
+                    <span className="font-mono font-bold text-price-tier1 text-sm">
+                      +{formatCzechNumber(taxRefund.monthlyRefund)} Kč / měs.
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-ink/80 leading-relaxed">
+                    Zaplacené úroky v 1. roce ({formatCzechNumber(mortgage.interestPaidYear1)} Kč) si odečtete
+                    ze základu daně z příjmů (strop 150 000 Kč). Stát vám vrátí{' '}
+                    <strong>{formatCzechNumber(taxRefund.annualRefund)} Kč ročně</strong>.
+                  </p>
+                </div>
+
+                {/* 2. Room rental */}
+                <div className="p-4 bg-white rounded-xl border border-hairline space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-sm text-ink flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-navy" />
+                        <span>2. Pronájem 1 neprůchozího pokoje (spolubydlení)</span>
+                      </h4>
+                      <p className="text-[11px] text-ink-muted mt-0.5">
+                        Dispozice 2+1 má dva samostatné pokoje a oddělenou kuchyň — ideální pro spolubydlícího.
+                      </p>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer ml-2">
+                      <input
+                        type="checkbox"
+                        checked={rentOutRoom}
+                        onChange={(e) => setRentOutRoom(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-hairline peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-hairline after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-price-tier1"></div>
+                    </label>
+                  </div>
+
+                  {rentOutRoom && (
+                    <div className="space-y-3 pt-2 border-t border-hairline">
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-semibold text-ink">Nájemné včetně podílu na energiích:</span>
+                          <span className="font-mono font-bold text-price-tier1 text-sm">
+                            {formatCzechNumber(roomRentAmount)} Kč / měs.
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={4000}
+                          max={8500}
+                          step={250}
+                          value={roomRentAmount}
+                          onChange={(e) => setRoomRentAmount(Number(e.target.value))}
+                          className="w-full h-1.5 bg-hairline rounded-lg appearance-none cursor-pointer accent-emerald-700"
+                        />
+                        <div className="flex justify-between text-[10px] text-ink-muted font-mono">
+                          <span>4 000 Kč</span>
+                          <span>6 000 Kč (standard Lovosice)</span>
+                          <span>8 500 Kč</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-ink font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={deductRoomRentTax}
+                            onChange={(e) => setDeductRoomRentTax(e.target.checked)}
+                            className="accent-navy"
+                          />
+                          <span>Zohlednit 15% daň z příjmu (§ 9 ZDP, 30% paušál)</span>
+                        </label>
+                        {deductRoomRentTax && (
+                          <span className="font-mono text-[11px] text-rose-700">
+                            -{formatCzechNumber(roomRentTaxMonthly)} Kč daň
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-2.5 rounded-lg bg-emerald-50 text-xs font-semibold text-price-tier1 flex justify-between">
+                        <span>Čistý měsíční příjem z pokoje:</span>
+                        <span className="font-mono font-bold">
+                          +{formatCzechNumber(roomRentNet)} Kč / měs.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* SUMMARY HERO BAR */}
+          {/* ========================================================================= */}
+          <div className="p-5 bg-navy text-white rounded-2xl shadow-md space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/15 pb-4">
+              <div>
+                <span className="text-xs uppercase font-bold tracking-wider text-white/70 block">
+                  Výsledek rodinného rozpočtu
+                </span>
+                <h3 className="text-xl md:text-2xl font-extrabold text-white">
+                  Čistý měsíční náklad z vlastní kapsy
+                </h3>
+              </div>
+
+              <div className="text-right">
+                <div className="text-3xl md:text-4xl font-mono font-extrabold text-white tabular-nums tracking-tight">
+                  {formatCzechNumber(netMonthlyCost)}&nbsp;Kč&nbsp;
+                  <span className="text-sm font-sans font-normal text-white/80">/ měsíc</span>
+                </div>
+                <span className="text-xs text-white/75 font-medium">
+                  kompletní bydlení 2+1 včetně všech energií, fondu oprav i vlaku do Prahy
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-white/90">
+              <div className="p-2.5 rounded-lg bg-white/10">
+                <span className="text-[11px] text-white/70 block">Celkové hrubé výdaje:</span>
+                <span className="font-mono font-bold text-sm">
+                  {formatCzechNumber(monthlyExpenses.totalGrossExpenses)} Kč/měs.
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-white/10">
+                <span className="text-[11px] text-white/70 block">Příjmy (pokoj + daňová vratka):</span>
+                <span className="font-mono font-bold text-sm text-emerald-300">
+                  -{formatCzechNumber(monthlyIncomes.totalIncomeAndOffsets)} Kč/měs.
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-emerald-500/20 border border-emerald-400/30">
+                <span className="text-[11px] text-emerald-200 font-bold block flex items-center gap-1">
+                  <Award className="w-3.5 h-3.5" />
+                  Budování vlastního majetku:
+                </span>
+                <span className="font-mono font-bold text-sm text-emerald-100">
+                  +{formatCzechNumber(mortgage.averageMonthlyPrincipalYear1)} Kč/měs.
+                </span>
+                <span className="text-[10px] text-emerald-200 block mt-0.5">
+                  splátka jistiny zůstává ve vašem vlastnictví
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* SECTION 5: 3-YEAR REFINANCING & WAGE GROWTH HORIZON (2026 vs 2029) */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-6">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <div>
+              <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-navy" />
+                <span>Výhled za 3 roky (2029): Refinancování hypotéky + růst mezd</span>
+              </h2>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Proč je hypotéka nejtěžší první 3 roky a jak se zátěž rozpočtu v čase radikálně snižuje
+              </p>
+            </div>
+          </div>
+
+          {/* Controls Bar for Projection */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-paper rounded-xl border border-hairline text-xs">
+            {/* Wage benchmark switcher */}
+            <div className="space-y-1">
+              <label className="font-bold text-ink block">Výchozí čistá mzda (2026):</label>
+              <div className="grid grid-cols-3 gap-1 bg-white p-0.5 rounded-lg border border-hairline text-[11px]">
+                <button
+                  onClick={() => setWagePreset('prague')}
+                  className={`py-1 rounded font-semibold transition-all ${
+                    wagePreset === 'prague' ? 'bg-navy text-white shadow-2xs' : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  Praha průměr
+                </button>
+                <button
+                  onClick={() => setWagePreset('cr')}
+                  className={`py-1 rounded font-semibold transition-all ${
+                    wagePreset === 'cr' ? 'bg-navy text-white shadow-2xs' : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  ČR průměr
+                </button>
+                <button
+                  onClick={() => setWagePreset('custom')}
+                  className={`py-1 rounded font-semibold transition-all ${
+                    wagePreset === 'custom' ? 'bg-navy text-white shadow-2xs' : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  Vlastní
+                </button>
+              </div>
+
+              {wagePreset === 'custom' ? (
+                <input
+                  type="number"
+                  step={1000}
+                  value={customNetWage}
+                  onChange={(e) => setCustomNetWage(Number(e.target.value))}
+                  className="w-full mt-1 bg-white border border-hairline rounded px-2 py-1 font-mono font-bold text-ink"
+                />
+              ) : (
+                <div className="text-[11px] text-ink-muted font-mono pt-0.5">
+                  {formatCzechNumber(activeNetWage)} Kč čistého / měs.
+                </div>
+              )}
+            </div>
+
+            {/* Annual Wage Growth Slider */}
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <label className="font-bold text-ink">Roční růst mezd:</label>
+                <span className="font-mono font-bold text-navy">+{wageGrowthRate.toFixed(1)} % p.a.</span>
+              </div>
+              <input
+                type="range"
+                min={3.0}
+                max={8.0}
+                step={0.5}
+                value={wageGrowthRate}
+                onChange={(e) => setWageGrowthRate(Number(e.target.value))}
+                className="w-full h-1.5 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
+              />
+              <div className="flex justify-between text-[10px] text-ink-muted font-mono">
+                <span>3.0 %</span>
+                <span>5.5 % (ČBA / MF ČR)</span>
+                <span>8.0 %</span>
+              </div>
+            </div>
+
+            {/* Refinancing Rate at 3 years */}
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <label className="font-bold text-ink">Sazba při refinancování (za 3 roky):</label>
+                <span className="font-mono font-bold text-navy">{refinancingRate.toFixed(1)} % p.a.</span>
+              </div>
+              <input
+                type="range"
+                min={3.0}
+                max={6.5}
+                step={0.1}
+                value={refinancingRate}
+                onChange={(e) => setRefinancingRate(Number(e.target.value))}
+                className="w-full h-1.5 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
+              />
+              <div className="flex justify-between text-[10px] text-ink-muted font-mono">
+                <span>3.0 %</span>
+                <button
+                  onClick={() => setRefinancingRate(interestRate)}
+                  className="text-navy underline hover:text-navy-dark"
+                >
+                  Stejná jako dnes ({interestRate} %)
+                </button>
+                <span>6.5 %</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Refinancing Mechanism Explanation Card */}
+          <div className="p-4 rounded-xl bg-paper/70 border border-hairline text-xs space-y-2">
+            <h4 className="font-bold text-navy flex items-center gap-1.5">
+              <Percent className="w-4 h-4" />
+              Matematika refinancování zpět na 30 let:
+            </h4>
+            <p className="text-ink-muted leading-relaxed">
+              Za první 3 roky splatíte{' '}
+              <strong className="text-ink">
+                {formatCzechNumber(mortgage.principalPaid36Months)} Kč jistiny
+              </strong>
+              . Dluh bance klesne z {formatCzechNumber(mortgage.loanAmount)} Kč na{' '}
+              <strong className="text-ink">{formatCzechNumber(mortgage.remainingBalance36Months)} Kč</strong>.
+              Při konci 3leté fixace se tento snížený zůstatek refinancuje znovu na 30 let (360 měsíců).
+              Tím měsíční splátka hypotéky klesne o{' '}
+              <strong className="text-price-tier1">
+                {formatCzechNumber(mortgage.monthlyMortgagePaymentDrop)} Kč měsíčně
+              </strong>{' '}
+              (z {formatCzechNumber(mortgage.monthlyPayment)} Kč na{' '}
+              {formatCzechNumber(mortgage.refinancedMonthlyPayment)} Kč).
+            </p>
+          </div>
+
+          {/* Side-by-Side Comparison Table: NOW (2026) vs IN 3 YEARS (2029) */}
+          <div className="border border-hairline rounded-xl overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-paper text-ink-muted border-b border-hairline font-bold uppercase text-[11px]">
+                <tr>
+                  <th className="py-3 px-4 text-left">Metrika</th>
+                  <th className="py-3 px-4 text-right">Dnes (rok 2026)</th>
+                  <th className="py-3 px-4 text-right bg-emerald-50/50 text-price-tier1">
+                    Za 3 roky (rok 2029)
+                  </th>
+                  <th className="py-3 px-4 text-right">Změna</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-hairline font-mono tabular-nums">
+                <tr>
+                  <td className="py-2.5 px-4 font-sans font-semibold text-ink">Zůstatek hypotéky:</td>
+                  <td className="py-2.5 px-4 text-right">{formatCzechNumber(mortgage.loanAmount)} Kč</td>
+                  <td className="py-2.5 px-4 text-right bg-emerald-50/30 font-bold text-price-tier1">
+                    {formatCzechNumber(mortgage.remainingBalance36Months)} Kč
+                  </td>
+                  <td className="py-2.5 px-4 text-right text-price-tier1">
+                    -{formatCzechNumber(mortgage.principalPaid36Months)} Kč
+                  </td>
+                </tr>
+
+                <tr>
+                  <td className="py-2.5 px-4 font-sans font-semibold text-ink">Splátka hypotéky:</td>
+                  <td className="py-2.5 px-4 text-right">{formatCzechNumber(mortgage.monthlyPayment)} Kč</td>
+                  <td className="py-2.5 px-4 text-right bg-emerald-50/30 font-bold text-price-tier1">
+                    {formatCzechNumber(mortgage.refinancedMonthlyPayment)} Kč
+                  </td>
+                  <td className="py-2.5 px-4 text-right text-price-tier1">
+                    -{formatCzechNumber(mortgage.monthlyMortgagePaymentDrop)} Kč/měs.
+                  </td>
+                </tr>
+
+                <tr>
+                  <td className="py-2.5 px-4 font-sans font-semibold text-ink">Čistá mzda:</td>
+                  <td className="py-2.5 px-4 text-right">{formatCzechNumber(projection.wage2026Net)} Kč</td>
+                  <td className="py-2.5 px-4 text-right bg-emerald-50/30 font-bold text-price-tier1">
+                    {formatCzechNumber(projection.wage2029Net)} Kč
+                  </td>
+                  <td className="py-2.5 px-4 text-right text-price-tier1">
+                    +{projection.wageGrowthTotalPercent.toFixed(1)} %
+                  </td>
+                </tr>
+
+                <tr>
+                  <td className="py-2.5 px-4 font-sans font-semibold text-ink">Čistý náklad (bydlení+vlak):</td>
+                  <td className="py-2.5 px-4 text-right">{formatCzechNumber(projection.netCost2026)} Kč</td>
+                  <td className="py-2.5 px-4 text-right bg-emerald-50/30 font-bold text-price-tier1">
+                    {formatCzechNumber(projection.netCost2029)} Kč
+                  </td>
+                  <td className="py-2.5 px-4 text-right text-price-tier1">
+                    -{formatCzechNumber(projection.netCost2026 - projection.netCost2029)} Kč
+                  </td>
+                </tr>
+
+                {/* HERO ROW: SHARE OF NET SALARY */}
+                <tr className="bg-navy/5 text-sm font-bold">
+                  <td className="py-3 px-4 font-sans text-navy">
+                    Podíl čistého nákladu z čisté mzdy:
+                  </td>
+                  <td className="py-3 px-4 text-right text-ink">
+                    {projection.wageShare2026Percent.toFixed(1)} % mzdy
+                  </td>
+                  <td className="py-3 px-4 text-right bg-emerald-100/70 text-price-tier1 font-extrabold text-base">
+                    {projection.wageShare2029Percent.toFixed(1)} % mzdy
+                  </td>
+                  <td className="py-3 px-4 text-right text-price-tier1 font-extrabold">
+                    {projection.wageShareDiffPoints.toFixed(1)} p.b. ({projection.wageShareRelativeDropPercent.toFixed(1)} % pokles zátěže)
+                  </td>
+                </tr>
+
+                <tr>
+                  <td className="py-2.5 px-4 font-sans font-semibold text-ink">Zbývá na život po zaplacení:</td>
+                  <td className="py-2.5 px-4 text-right">{formatCzechNumber(projection.disposableIncome2026)} Kč</td>
+                  <td className="py-2.5 px-4 text-right bg-emerald-50/30 font-bold text-price-tier1">
+                    {formatCzechNumber(projection.disposableIncome2029)} Kč
+                  </td>
+                  <td className="py-2.5 px-4 text-right text-price-tier1">
+                    +{formatCzechNumber(projection.disposableIncome2029 - projection.disposableIncome2026)} Kč/měs.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bottom Conclusion Callout */}
+          <div className="p-4 rounded-xl bg-paper border border-hairline flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="font-bold text-xs uppercase tracking-wider text-navy">
+                Závěr případové studie
+              </span>
+              <p className="text-xs text-ink-muted max-w-2xl leading-relaxed">
+                Zatímco nájem v Praze v čase neustále stoupá s inflací a po 30 letech vám nezůstane nic,
+                vlastní byt v Lovosicích u nádraží fixuje hlavní náklad, vytváří majetek a díky
+                refinancování a růstu mezd klesne jeho zátěž na rozpočet ze{' '}
+                <strong>{projection.wageShare2026Percent.toFixed(1)} %</strong> na pouhých{' '}
+                <strong>{projection.wageShare2029Percent.toFixed(1)} %</strong> vaší mzdy.
+              </p>
+            </div>
+
+            <button
+              onClick={onBackToMap}
+              className="px-5 py-2.5 bg-navy text-white text-xs font-bold rounded-lg hover:bg-navy-dark transition-colors inline-flex items-center gap-2 shadow-sm flex-shrink-0"
+            >
+              <span>Prozkoumat další stanice</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+};

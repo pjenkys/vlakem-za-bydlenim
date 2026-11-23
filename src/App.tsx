@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { HubId, HousingMode, ApartmentSize, FilterState } from './types';
 import { HUBS } from './data/hubs';
 import { STATIONS } from './data/stations';
@@ -6,6 +6,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { StationMap } from './components/StationMap';
 import { AboutModal } from './components/AboutModal';
+import { CaseStudyPage } from './components/CaseStudyPage';
 import { parseTrainTimeInMinutes, calculateStationMetrics } from './utils/calculations';
 
 const DEFAULT_FILTERS: FilterState = {
@@ -19,6 +20,11 @@ const DEFAULT_FILTERS: FilterState = {
 };
 
 export function App() {
+  // Navigation state synced with URL hash
+  const [currentView, setCurrentView] = useState<'map' | 'case-study'>(() => {
+    return window.location.hash.includes('modelovy-priklad') ? 'case-study' : 'map';
+  });
+
   const [activeHubId, setActiveHubId] = useState<HubId>('praha');
   const [mode, setMode] = useState<HousingMode>('buy');
   const [apartmentSize, setApartmentSize] = useState<ApartmentSize>(65);
@@ -27,6 +33,22 @@ export function App() {
   const [hoveredStationId, setHoveredStationId] = useState<string | null>(null);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<'list' | 'map'>('list');
+
+  // Sync hash changes with view state (e.g. browser back/forward buttons)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const isCaseStudy = window.location.hash.includes('modelovy-priklad');
+      setCurrentView(isCaseStudy ? 'case-study' : 'map');
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const handleViewChange = useCallback((newView: 'map' | 'case-study') => {
+    setCurrentView(newView);
+    window.location.hash = newView === 'case-study' ? '#/modelovy-priklad' : '#/';
+  }, []);
 
   const currentHub = HUBS[activeHubId];
 
@@ -151,6 +173,8 @@ export function App() {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-paper text-ink font-sans">
       {/* Header Bar */}
       <Header
+        currentView={currentView}
+        onViewChange={handleViewChange}
         activeHub={activeHubId}
         onHubChange={handleHubChange}
         mode={mode}
@@ -162,51 +186,56 @@ export function App() {
         onMobileTabChange={setMobileTab}
       />
 
-      {/* Main Split Body */}
-      <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
-        {/* Left Sidebar (Desktop: always visible; Mobile: visible when mobileTab === 'list') */}
-        <div
-          className={`h-full flex-shrink-0 ${
-            mobileTab === 'list' ? 'flex w-full md:w-auto' : 'hidden md:flex'
-          }`}
-        >
-          <Sidebar
-            stations={filteredStations}
-            allEligibleCount={eligibleStations.length}
-            activeHub={currentHub}
-            mode={mode}
-            apartmentSize={apartmentSize}
-            filters={filters}
-            onFilterChange={handleFilterChange}
-            onResetFilters={handleResetFilters}
-            isFiltered={isFiltered}
-            selectedStationId={selectedStationId}
-            onSelectStation={handleSelectStation}
-            hoveredStationId={hoveredStationId}
-            onHoverStation={setHoveredStationId}
-          />
-        </div>
+      {/* Main View: Case Study or Map Split */}
+      {currentView === 'case-study' ? (
+        <CaseStudyPage onBackToMap={() => handleViewChange('map')} />
+      ) : (
+        <main className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+          {/* Left Sidebar (Desktop: always visible; Mobile: visible when mobileTab === 'list') */}
+          <div
+            className={`h-full flex-shrink-0 ${
+              mobileTab === 'list' ? 'flex w-full md:w-auto' : 'hidden md:flex'
+            }`}
+          >
+            <Sidebar
+              stations={filteredStations}
+              allEligibleCount={eligibleStations.length}
+              activeHub={currentHub}
+              mode={mode}
+              apartmentSize={apartmentSize}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              onResetFilters={handleResetFilters}
+              isFiltered={isFiltered}
+              selectedStationId={selectedStationId}
+              onSelectStation={handleSelectStation}
+              hoveredStationId={hoveredStationId}
+              onHoverStation={setHoveredStationId}
+              onOpenCaseStudy={() => handleViewChange('case-study')}
+            />
+          </div>
 
-        {/* Right Panel Map (Desktop: always visible; Mobile: visible when mobileTab === 'map') */}
-        <div
-          className={`h-full flex-1 relative ${
-            mobileTab === 'map' ? 'block w-full' : 'hidden md:block'
-          }`}
-        >
-          <StationMap
-            stations={STATIONS}
-            filteredStationIds={filteredStationIds}
-            activeHub={currentHub}
-            mode={mode}
-            apartmentSize={apartmentSize}
-            selectedStationId={selectedStationId}
-            onSelectStation={handleSelectStation}
-            hoveredStationId={hoveredStationId}
-            onHoverStation={setHoveredStationId}
-            activeMobileTab={mobileTab}
-          />
-        </div>
-      </main>
+          {/* Right Panel Map (Desktop: always visible; Mobile: visible when mobileTab === 'map') */}
+          <div
+            className={`h-full flex-1 relative ${
+              mobileTab === 'map' ? 'block w-full' : 'hidden md:block'
+            }`}
+          >
+            <StationMap
+              stations={STATIONS}
+              filteredStationIds={filteredStationIds}
+              activeHub={currentHub}
+              mode={mode}
+              apartmentSize={apartmentSize}
+              selectedStationId={selectedStationId}
+              onSelectStation={handleSelectStation}
+              hoveredStationId={hoveredStationId}
+              onHoverStation={setHoveredStationId}
+              activeMobileTab={mobileTab}
+            />
+          </div>
+        </main>
+      )}
 
       {/* About & Methodology Modal */}
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />

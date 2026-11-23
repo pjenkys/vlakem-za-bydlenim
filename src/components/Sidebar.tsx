@@ -37,6 +37,7 @@ interface SidebarProps {
   onSelectStation: (stationId: string | null) => void;
   hoveredStationId: string | null;
   onHoverStation: (stationId: string | null) => void;
+  onOpenCaseStudy?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectStation,
   hoveredStationId,
   onHoverStation,
+  onOpenCaseStudy,
 }) => {
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
@@ -70,6 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           mode={mode}
           apartmentSize={apartmentSize}
           onBack={() => onSelectStation(null)}
+          onOpenCaseStudy={onOpenCaseStudy}
         />
       </aside>
     );
