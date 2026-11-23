@@ -75,14 +75,66 @@ export interface PragueComparisonDetails {
   monthlyCashSavingsVsPragueRent: number;
 }
 
-export interface CarFreeSavingsDetails {
+export type CarPreset = 'older' | 'newer';
+
+export interface CarProfile {
+  id: CarPreset;
+  name: string;
+  shortLabel: string;
+  carPurchasePrice: number;
   carDepreciationAnnual: number;
   carInsuranceAnnual: number;
+  insuranceLabel: string;
+  carMaintenanceAnnual: number;
+  carFuelAnnual: number;
+  carFeesAndParkingAnnual: number;
+  totalCarCostAnnual: number;
+  costPerKm: number;
+}
+
+export const CAR_PROFILES: Record<CarPreset, CarProfile> = {
+  older: {
+    id: 'older',
+    name: 'Starší ojetina (150 tis. Kč)',
+    shortLabel: 'Starší ojetina (150 tis. Kč)',
+    carPurchasePrice: 150000,
+    carDepreciationAnnual: 18000,
+    carInsuranceAnnual: 8500,
+    insuranceLabel: 'Povinné ručení + skla',
+    carMaintenanceAnnual: 18500,
+    carFuelAnnual: 31000,
+    carFeesAndParkingAnnual: 4000,
+    totalCarCostAnnual: 80000,
+    costPerKm: 6.7,
+  },
+  newer: {
+    id: 'newer',
+    name: 'Zánovní ojetina (320 tis. Kč)',
+    shortLabel: 'Zánovní ojetina (320 tis. Kč)',
+    carPurchasePrice: 320000,
+    carDepreciationAnnual: 38000,
+    carInsuranceAnnual: 16000,
+    insuranceLabel: 'Povinné + havarijní',
+    carMaintenanceAnnual: 14000,
+    carFuelAnnual: 31000,
+    carFeesAndParkingAnnual: 5000,
+    totalCarCostAnnual: 104000,
+    costPerKm: 8.7,
+  },
+};
+
+export interface CarFreeSavingsDetails {
+  carPreset: CarPreset;
+  carPurchasePrice: number;
+  carDepreciationAnnual: number;
+  carInsuranceAnnual: number;
+  insuranceLabel: string;
   carMaintenanceAnnual: number;
   carFuelAnnual: number;
   carFeesAndParkingAnnual: number;
   totalCarCostAnnual: number;
   totalCarCostMonthly: number;
+  costPerKm: number;
   trainPassIn100Annual: number;
   carsharingBackupAnnual: number;
   carFreeTransitCostAnnual: number;
@@ -357,35 +409,32 @@ export function calculatePragueComparison(
 
 /**
  * Calculates realistic annual car ownership savings vs. rail commuting.
- * Linked dynamically to the live annual rail commuting cost.
+ * Linked dynamically to the live annual rail commuting cost and chosen car preset.
  */
-export function calculateCarFreeSavings(annualCommuteCost: number = 22000): CarFreeSavingsDetails {
-  const carDepreciationAnnual = 40000;
-  const carInsuranceAnnual = 14000;
-  const carMaintenanceAnnual = 15000;
-  const carFuelAnnual = 32000;
-  const carFeesAndParkingAnnual = 5000;
-
-  const totalCarCostAnnual =
-    carDepreciationAnnual +
-    carInsuranceAnnual +
-    carMaintenanceAnnual +
-    carFuelAnnual +
-    carFeesAndParkingAnnual; // 106 000 Kč
-  const totalCarCostMonthly = Math.round(totalCarCostAnnual / 12); // ~8 833 Kč
+export function calculateCarFreeSavings(
+  annualCommuteCost: number = 22000,
+  carPreset: CarPreset = 'older'
+): CarFreeSavingsDetails {
+  const profile = CAR_PROFILES[carPreset] || CAR_PROFILES.older;
+  const totalCarCostAnnual = profile.totalCarCostAnnual;
+  const totalCarCostMonthly = Math.round(totalCarCostAnnual / 12);
 
   const carFreeTransitCostAnnual = annualCommuteCost;
   const netCarFreeSavingsAnnual = totalCarCostAnnual - carFreeTransitCostAnnual;
   const netCarFreeSavingsMonthly = Math.round(netCarFreeSavingsAnnual / 12);
 
   return {
-    carDepreciationAnnual,
-    carInsuranceAnnual,
-    carMaintenanceAnnual,
-    carFuelAnnual,
-    carFeesAndParkingAnnual,
+    carPreset: profile.id,
+    carPurchasePrice: profile.carPurchasePrice,
+    carDepreciationAnnual: profile.carDepreciationAnnual,
+    carInsuranceAnnual: profile.carInsuranceAnnual,
+    insuranceLabel: profile.insuranceLabel,
+    carMaintenanceAnnual: profile.carMaintenanceAnnual,
+    carFuelAnnual: profile.carFuelAnnual,
+    carFeesAndParkingAnnual: profile.carFeesAndParkingAnnual,
     totalCarCostAnnual,
     totalCarCostMonthly,
+    costPerKm: profile.costPerKm,
     trainPassIn100Annual: annualCommuteCost,
     carsharingBackupAnnual: 0,
     carFreeTransitCostAnnual,

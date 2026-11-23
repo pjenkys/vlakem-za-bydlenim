@@ -21,12 +21,14 @@ import {
   Building2,
   Coins,
   Gem,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   CASE_STUDY_LISTING,
   CASE_STUDY_LOCATION,
 } from '../data/caseStudyLovosice';
 import {
+  CarPreset,
   calculateCommutingCosts,
   calculateMortgageDetails,
   calculateMortgageTaxRefundMonthly,
@@ -93,6 +95,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
   const [rentOutRoom, setRentOutRoom] = useState(true);
   const [roomRentAmount, setRoomRentAmount] = useState(6000);
   const [deductRoomRentTax, setDeductRoomRentTax] = useState(true);
+
+  // --- Car-free Preset State (Default: Starší ojetina 150 tis. Kč) ---
+  const [carPreset, setCarPreset] = useState<CarPreset>('older');
 
   // --- 3-Year Projection State ---
   const [wagePreset, setWagePreset] = useState<'prague' | 'cr' | 'custom'>('prague');
@@ -254,13 +259,31 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     );
   }, [purchasePrice, netMonthlyCost, interestRate]);
 
-  // 9. Car-free Savings Math (linked dynamically to actual annual rail commute cost)
+  // 9. Car-free Savings Math (linked dynamically to actual annual rail commute cost and car preset)
   const carSavings = useMemo(() => {
-    return calculateCarFreeSavings(commute.effectiveAnnualCost);
-  }, [commute.effectiveAnnualCost]);
+    return calculateCarFreeSavings(commute.effectiveAnnualCost, carPreset);
+  }, [commute.effectiveAnnualCost, carPreset]);
 
-  const netCarSavingsYearly = 106000 - commute.effectiveAnnualCost;
-  const netCarSavingsMonthly = Math.round(netCarSavingsYearly / 12);
+  const netCarSavingsYearly = carSavings.netCarFreeSavingsAnnual;
+  const netCarSavingsMonthly = carSavings.netCarFreeSavingsMonthly;
+  const mortgageCoveragePct =
+    mortgage.monthlyPayment > 0
+      ? Math.round((netCarSavingsMonthly / mortgage.monthlyPayment) * 100)
+      : 0;
+
+  // Car Purchase Price as Mortgage Down Payment ("Vstupní kapitál")
+  const carPurchasePrice = carSavings.carPurchasePrice;
+  const requiredDownPayment = mortgage.downPaymentCzk;
+  const downPaymentCoveragePct =
+    requiredDownPayment > 0
+      ? Math.min(100, Math.round((carPurchasePrice / requiredDownPayment) * 100))
+      : 100;
+  const remainingDownPayment = Math.max(0, requiredDownPayment - carPurchasePrice);
+  const yearsToSaveRestVal =
+    remainingDownPayment > 0
+      ? remainingDownPayment / Math.max(1, netCarSavingsYearly)
+      : 0;
+  const yearsToSaveRest = yearsToSaveRestVal.toFixed(1).replace('.', ',');
 
   // 10. 3-Year Horizon Projection
   const projection = useMemo(() => {
@@ -685,8 +708,8 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
         {/* ========================================================================= */}
         {/* NEW SECTION: CAR-FREE LIFESTYLE & ANNUAL AUTO SAVINGS */}
         {/* ========================================================================= */}
-        <section className="bg-gradient-to-br from-paper to-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-hairline pb-3">
+        <section className="bg-gradient-to-br from-paper to-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-hairline pb-4">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-price-tier1 border border-price-tier1/20">
@@ -702,21 +725,54 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               </p>
             </div>
 
-            <div className="text-right">
-              <span className="text-lg md:text-xl font-mono font-extrabold text-price-tier1 tabular-nums">
-                +{formatCzechNumber(netCarSavingsYearly)} Kč / rok
-              </span>
-              <span className="text-[10px] text-ink-muted block">čistá roční úspora v peněžence</span>
+            <div className="flex items-center gap-3 self-start md:self-auto flex-wrap">
+              {/* Segmented Toggle for Car Profile */}
+              <div className="inline-flex p-1 bg-paper rounded-lg border border-hairline text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setCarPreset('older')}
+                  className={`px-2.5 py-1 rounded transition-all ${
+                    carPreset === 'older'
+                      ? 'bg-navy text-white shadow-2xs'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  Starší ojetina (150 tis. Kč)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCarPreset('newer')}
+                  className={`px-2.5 py-1 rounded transition-all ${
+                    carPreset === 'newer'
+                      ? 'bg-navy text-white shadow-2xs'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  Zánovní ojetina (320 tis. Kč)
+                </button>
+              </div>
+
+              <div className="text-right">
+                <span className="text-lg md:text-xl font-mono font-extrabold text-price-tier1 tabular-nums block">
+                  +{formatCzechNumber(netCarSavingsYearly)} Kč / rok
+                </span>
+                <span className="text-[10px] text-ink-muted block">čistá roční úspora v peněžence</span>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center text-xs">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start text-xs">
             {/* Car Cost Breakdown */}
-            <div className="lg:col-span-7 space-y-2">
-              <h3 className="font-bold text-ink uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <Fuel className="w-3.5 h-3.5 text-navy" />
-                Reálné průměrné roční náklady na provoz běžného auta v ČR (12 000 km/rok):
-              </h3>
+            <div className="lg:col-span-7 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-ink uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Fuel className="w-3.5 h-3.5 text-navy" />
+                  Roční provoz ({carPreset === 'older' ? 'starší ojetina' : 'zánovní ojetina'}, 12 000 km/rok):
+                </h3>
+                <span className="text-[10px] font-mono text-ink-muted">
+                  ~{carSavings.costPerKm.toFixed(1).replace('.', ',')} Kč / km
+                </span>
+              </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono tabular-nums">
                 <div className="p-2.5 bg-white rounded-lg border border-hairline">
@@ -724,7 +780,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   <span className="font-bold text-ink">{formatCzechNumber(carSavings.carDepreciationAnnual)} Kč/rok</span>
                 </div>
                 <div className="p-2.5 bg-white rounded-lg border border-hairline">
-                  <span className="text-[10px] font-sans text-ink-muted block">Povinné + havarijní:</span>
+                  <span className="text-[10px] font-sans text-ink-muted block">{carSavings.insuranceLabel}:</span>
                   <span className="font-bold text-ink">{formatCzechNumber(carSavings.carInsuranceAnnual)} Kč/rok</span>
                 </div>
                 <div className="p-2.5 bg-white rounded-lg border border-hairline">
@@ -732,7 +788,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   <span className="font-bold text-ink">{formatCzechNumber(carSavings.carMaintenanceAnnual)} Kč/rok</span>
                 </div>
                 <div className="p-2.5 bg-white rounded-lg border border-hairline">
-                  <span className="text-[10px] font-sans text-ink-muted block">Pohonné hmoty:</span>
+                  <span className="text-[10px] font-sans text-ink-muted block">Pohonné hmoty (12 tis. km):</span>
                   <span className="font-bold text-ink">{formatCzechNumber(carSavings.carFuelAnnual)} Kč/rok</span>
                 </div>
                 <div className="p-2.5 bg-white rounded-lg border border-hairline">
@@ -748,17 +804,23 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               {/* Crisp 1-line equation linking car costs to live train commute */}
               <div className="p-2.5 bg-paper rounded-lg border border-hairline font-mono text-[11px] text-ink flex items-center justify-between flex-wrap gap-2">
                 <span>
-                  <strong className="text-rose-700">106 000 Kč</strong> (provoz auta) − <strong className="text-navy">{formatCzechNumber(commute.effectiveAnnualCost)} Kč</strong> (vlak do Prahy) =
+                  <strong className="text-rose-700">{formatCzechNumber(carSavings.totalCarCostAnnual)} Kč</strong> (provoz auta) − <strong className="text-navy">{formatCzechNumber(commute.effectiveAnnualCost)} Kč</strong> (vlak do Prahy) =
                 </span>
                 <span className="font-bold text-price-tier1 text-xs">
-                  {formatCzechNumber(netCarSavingsYearly)} Kč / rok čistá úspora
+                  {formatCzechNumber(netCarSavingsYearly)} Kč / rok čistá úspora ({formatCzechNumber(netCarSavingsMonthly)} Kč / měs.)
                 </span>
               </div>
+
+              {/* Mileage honesty note */}
+              <p className="text-[10.5px] text-ink-muted leading-relaxed">
+                * Konzervativní výpočet pro běžný nájezd 12 000 km/rok. Při pravidelném dojíždění Lovosice–Praha autem (18–30 tis. km/rok) jsou reálné náklady ještě výrazně vyšší.
+              </p>
             </div>
 
             {/* Car-free verdict */}
-            <div className="lg:col-span-5 p-4 rounded-xl bg-white border border-hairline space-y-2">
-              <h4 className="font-bold text-sm text-navy">
+            <div className="lg:col-span-5 p-4 rounded-xl bg-white border border-hairline space-y-2.5">
+              <h4 className="font-bold text-sm text-navy flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-price-tier1" />
                 Jak to funguje v Lovosicích v praxi?
               </h4>
               <p className="text-ink-muted leading-relaxed">
@@ -766,10 +828,95 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               </p>
               <div className="pt-2 border-t border-hairline flex items-center justify-between text-[11px] text-price-tier1 font-semibold">
                 <span>Úspora bez auta zaplatí:</span>
-                <span className="font-bold font-mono">
-                  {((netCarSavingsMonthly / mortgage.monthlyPayment) * 100).toFixed(0)} % splátky hypotéky!
+                <span className="font-bold font-mono text-xs">
+                  {mortgageCoveragePct} % splátky hypotéky!
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* NEW Sub-Block: Pořizovací cena auta = základ na hypotéku */}
+          <div className="p-4 md:p-5 rounded-xl bg-white border border-hairline space-y-3.5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-hairline pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-navy/10 text-navy">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-ink">
+                    Pořizovací cena auta = základ na hypotéku
+                  </h4>
+                  <span className="text-[11px] text-ink-muted">
+                    Vstupní kapitál na vlastní zdroje ({downPaymentPercent} % LTV = {formatCzechNumber(mortgage.downPaymentCzk)} Kč)
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                {carPurchasePrice < mortgage.downPaymentCzk ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-price-tier1 bg-emerald-50 px-2.5 py-1 rounded-md border border-price-tier1/20">
+                    Pokryje {downPaymentCoveragePct} % vlastních zdrojů
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-white bg-price-tier1 px-2.5 py-1 rounded-md shadow-2xs">
+                    ✓ Pokryje 100 % vlastních zdrojů
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Horizontal Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-[11px] font-mono tabular-nums">
+                <span className="text-ink font-semibold flex items-center gap-1.5">
+                  <Car className="w-3.5 h-3.5 text-navy" />
+                  Kupní cena auta: <strong>{formatCzechNumber(carPurchasePrice)} Kč</strong>
+                </span>
+                <span className="text-ink font-semibold flex items-center gap-1.5">
+                  <Home className="w-3.5 h-3.5 text-price-tier1" />
+                  Potřebný základ LTV ({downPaymentPercent} %): <strong>{formatCzechNumber(mortgage.downPaymentCzk)} Kč</strong>
+                </span>
+              </div>
+
+              <div className="w-full bg-paper rounded-full h-3.5 border border-hairline overflow-hidden p-0.5">
+                <div
+                  className="bg-price-tier1 h-full rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-1.5"
+                  style={{ width: `${downPaymentCoveragePct}%` }}
+                >
+                  {downPaymentCoveragePct >= 20 && (
+                    <span className="text-[9px] font-mono font-bold text-white leading-none">
+                      {downPaymentCoveragePct} %
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-between text-[10px] text-ink-muted font-mono">
+                <span>0 Kč</span>
+                <span>{downPaymentCoveragePct} % splněno</span>
+                <span>{formatCzechNumber(mortgage.downPaymentCzk)} Kč (cíl)</span>
+              </div>
+            </div>
+
+            {/* Narrative Explanation */}
+            <div className="text-xs leading-relaxed text-ink/85">
+              {carPurchasePrice < mortgage.downPaymentCzk ? (
+                <p>
+                  Místo koupě ojetiny za <strong className="text-ink font-mono">{formatCzechNumber(carPurchasePrice)} Kč</strong> vložíte peníze do základu hypotéky — máte hned {downPaymentCoveragePct >= 40 && downPaymentCoveragePct <= 55 ? 'téměř polovinu' : `${downPaymentCoveragePct} %`} potřebných {downPaymentPercent} % ({formatCzechNumber(mortgage.downPaymentCzk)} Kč). Zbývajících <strong className="text-ink font-mono">{formatCzechNumber(remainingDownPayment)} Kč</strong> našetříte díky úspoře na provozu auta za cca <strong className="text-price-tier1 font-mono">{yearsToSaveRest} roku</strong> (a v páru bez dvou aut máte téměř celý základ hned).
+                </p>
+              ) : (
+                <p>
+                  Cena jedné slušné 5leté ojetiny (<strong className="text-ink font-mono">{formatCzechNumber(carPurchasePrice)} Kč</strong>) pokryje kompletní {downPaymentPercent}% základ hypotéky na tento byt ({formatCzechNumber(mortgage.downPaymentCzk)} Kč). Bariéra vstupního kapitálu u mladých často není o tom, že peníze nemají — ale že stojí zaparkované před domem.
+                </p>
+              )}
+            </div>
+
+            {/* Bonus Note: Auto na úvěr / operák */}
+            <div className="pt-2 border-t border-hairline flex items-start sm:items-center gap-2 text-[11px] text-amber-900 bg-amber-50/70 p-2.5 rounded-lg border border-amber-200">
+              <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5 sm:mt-0" />
+              <span>
+                <strong>Pozor na auto na úvěr/operák:</strong> splátka 5 000 Kč/měs. snižuje maximální dostupnou hypotéku v bance (kvůli bonitě) zhruba o 930 000 Kč.
+              </span>
             </div>
           </div>
         </section>
