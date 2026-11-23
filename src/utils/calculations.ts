@@ -157,6 +157,7 @@ export function calculateStationMetrics(
  * Czech number formatters with non-breaking spaces
  */
 export function formatCzechNumber(num: number): string {
+  if (num === undefined || num === null || isNaN(num)) return '0';
   return Math.round(num).toLocaleString('cs-CZ').replace(/\s/g, ' ');
 }
 

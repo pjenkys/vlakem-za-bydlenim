@@ -22,6 +22,7 @@ import {
   formatPriceDiffBadge,
 } from '../utils/calculations';
 import { StationDetail } from './StationDetail';
+import { STATIONS } from '../data/stations';
 
 interface SidebarProps {
   stations: Station[];
@@ -58,9 +59,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
-  // If a station is selected, render StationDetail
+  // If a station is selected, render StationDetail (check filtered stations first, then all stations)
   const selectedStation = selectedStationId
-    ? stations.find((s) => s.id === selectedStationId) || null
+    ? stations.find((s) => s.id === selectedStationId) ||
+      STATIONS.find((s) => s.id === selectedStationId) ||
+      null
     : null;
 
   if (selectedStation) {

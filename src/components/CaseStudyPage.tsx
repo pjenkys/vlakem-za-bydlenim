@@ -1624,9 +1624,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               . Dluh bance klesne z {formatCzechNumber(mortgage.loanAmount)} Kč na{' '}
               <strong className="text-ink">{formatCzechNumber(mortgage.remainingBalance36Months)} Kč</strong>.
               Při konci 3leté fixace se tento snížený zůstatek refinancuje znovu na 30 let (360 měsíců).
-              Tím měsíční splátka hypotéky klesne o{' '}
+              Tím měsíční splátka hypotéky {mortgage.monthlyMortgagePaymentDrop >= 0 ? 'klesne' : 'vzroste'} o{' '}
               <strong className="text-price-tier1">
-                {formatCzechNumber(mortgage.monthlyMortgagePaymentDrop)} Kč měsíčně
+                {formatCzechNumber(Math.abs(mortgage.monthlyMortgagePaymentDrop))} Kč měsíčně
               </strong>{' '}
               (z {formatCzechNumber(mortgage.monthlyPayment)} Kč na{' '}
               {formatCzechNumber(mortgage.refinancedMonthlyPayment)} Kč).
@@ -1665,7 +1665,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                     {formatCzechNumber(mortgage.refinancedMonthlyPayment)} Kč
                   </td>
                   <td className="py-2.5 px-4 text-right text-price-tier1">
-                    -{formatCzechNumber(mortgage.monthlyMortgagePaymentDrop)} Kč/měs.
+                    {mortgage.monthlyMortgagePaymentDrop >= 0
+                      ? `-${formatCzechNumber(mortgage.monthlyMortgagePaymentDrop)} Kč/měs.`
+                      : `+${formatCzechNumber(Math.abs(mortgage.monthlyMortgagePaymentDrop))} Kč/měs.`}
                   </td>
                 </tr>
 
@@ -1687,7 +1689,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                     {formatCzechNumber(projection.netCost2029)} Kč
                   </td>
                   <td className="py-2.5 px-4 text-right text-price-tier1">
-                    -{formatCzechNumber(projection.netCost2026 - projection.netCost2029)} Kč
+                    {projection.netCost2026 - projection.netCost2029 >= 0
+                      ? `-${formatCzechNumber(projection.netCost2026 - projection.netCost2029)} Kč`
+                      : `+${formatCzechNumber(Math.abs(projection.netCost2026 - projection.netCost2029))} Kč`}
                   </td>
                 </tr>
 
@@ -1703,7 +1707,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                     {projection.wageShare2029Percent.toFixed(1)} % mzdy
                   </td>
                   <td className="py-3 px-4 text-right text-price-tier1 font-extrabold">
-                    {projection.wageShareDiffPoints.toFixed(1)} p.b. ({projection.wageShareRelativeDropPercent.toFixed(1)} % pokles zátěže)
+                    {projection.wageShareDiffPoints <= 0
+                      ? `${projection.wageShareDiffPoints.toFixed(1)} p.b. (${projection.wageShareRelativeDropPercent.toFixed(1)} % pokles zátěže)`
+                      : `+${projection.wageShareDiffPoints.toFixed(1)} p.b.`}
                   </td>
                 </tr>
 
