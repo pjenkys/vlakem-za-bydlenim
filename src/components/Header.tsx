@@ -1,5 +1,5 @@
 import React from 'react';
-import { Train, Info, Map, List, Home, KeyRound, Building } from 'lucide-react';
+import { Train, Info, Map, List, Home, KeyRound, Building, ArrowLeft } from 'lucide-react';
 import { HubId, HousingMode, ApartmentSize } from '../types';
 import { HUBS, HUB_IDS } from '../data/hubs';
 
@@ -76,13 +76,17 @@ export const Header: React.FC<HeaderProps> = ({
             {/* View Switcher on mobile */}
             <button
               onClick={() => onViewChange(currentView === 'map' ? 'case-study' : 'map')}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all ${
                 currentView === 'case-study'
                   ? 'bg-navy text-white border-navy'
                   : 'bg-paper text-navy border-hairline hover:bg-white'
               }`}
             >
-              <Building className="w-3.5 h-3.5" />
+              {currentView === 'case-study' ? (
+                <ArrowLeft className="w-3.5 h-3.5" />
+              ) : (
+                <Building className="w-3.5 h-3.5" />
+              )}
               <span>{currentView === 'map' ? 'Modelový příklad' : 'Zpět na mapu'}</span>
             </button>
 
@@ -126,6 +130,17 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Global Controls Bar */}
         <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs">
+          {/* Back button when viewing case study on desktop/tablet */}
+          {currentView === 'case-study' && (
+            <button
+              onClick={() => onViewChange('map')}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs text-navy hover:text-navy-dark bg-paper hover:bg-hairline rounded-lg border border-hairline transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Zpět na mapu</span>
+            </button>
+          )}
+
           {/* Main View Switcher (Desktop) */}
           <div className="hidden lg:flex items-center bg-paper p-1 rounded-lg border border-hairline">
             <button

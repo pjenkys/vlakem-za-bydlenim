@@ -56,7 +56,9 @@ export interface PragueComparisonDetails {
   pragueDownPayment10Percent: number;
   pragueMortgageMonthly: number;
   pragueOperatingCostsMonthly: number;
+  pragueTaxRefundMonthly: number;
   pragueTotalMonthlyGross: number;
+  pragueTotalMonthlyNet: number;
   // Prague Rent
   pragueRentPerSqm: number;
   praguePureRentMonthly: number;
@@ -311,7 +313,9 @@ export function calculatePragueComparison(
       (Math.pow(1 + monthlyRate, 360) - 1)
   ); // ~37 080 Kč/měs.
   const pragueOperatingCostsMonthly = 5500;
+  const pragueTaxRefundMonthly = 1875; // § 15 ZDP: strop 150 000 Kč úroků * 15 % / 12 měsíců
   const pragueTotalMonthlyGross = pragueMortgageMonthly + pragueOperatingCostsMonthly; // ~42 580 Kč/měs.
+  const pragueTotalMonthlyNet = pragueTotalMonthlyGross - pragueTaxRefundMonthly; // ~40 705 Kč/měs.
 
   // Prague Rent
   const pragueRentPerSqm = 415;
@@ -334,7 +338,9 @@ export function calculatePragueComparison(
     pragueDownPayment10Percent,
     pragueMortgageMonthly,
     pragueOperatingCostsMonthly,
+    pragueTaxRefundMonthly,
     pragueTotalMonthlyGross,
+    pragueTotalMonthlyNet,
     pragueRentPerSqm,
     praguePureRentMonthly,
     pragueRentOperatingCostsMonthly,
@@ -351,8 +357,9 @@ export function calculatePragueComparison(
 
 /**
  * Calculates realistic annual car ownership savings vs. rail commuting.
+ * Linked dynamically to the live annual rail commuting cost.
  */
-export function calculateCarFreeSavings(): CarFreeSavingsDetails {
+export function calculateCarFreeSavings(annualCommuteCost: number = 22000): CarFreeSavingsDetails {
   const carDepreciationAnnual = 40000;
   const carInsuranceAnnual = 14000;
   const carMaintenanceAnnual = 15000;
@@ -367,12 +374,9 @@ export function calculateCarFreeSavings(): CarFreeSavingsDetails {
     carFeesAndParkingAnnual; // 106 000 Kč
   const totalCarCostMonthly = Math.round(totalCarCostAnnual / 12); // ~8 833 Kč
 
-  const trainPassIn100Annual = 22000;
-  const carsharingBackupAnnual = 6000; // Rezerva na občasný carsharing / půjčovnu dodávky
-  const carFreeTransitCostAnnual = trainPassIn100Annual + carsharingBackupAnnual; // 28 000 Kč
-
-  const netCarFreeSavingsAnnual = totalCarCostAnnual - carFreeTransitCostAnnual; // 78 000 Kč
-  const netCarFreeSavingsMonthly = Math.round(netCarFreeSavingsAnnual / 12); // ~6 500 Kč
+  const carFreeTransitCostAnnual = annualCommuteCost;
+  const netCarFreeSavingsAnnual = totalCarCostAnnual - carFreeTransitCostAnnual;
+  const netCarFreeSavingsMonthly = Math.round(netCarFreeSavingsAnnual / 12);
 
   return {
     carDepreciationAnnual,
@@ -382,8 +386,8 @@ export function calculateCarFreeSavings(): CarFreeSavingsDetails {
     carFeesAndParkingAnnual,
     totalCarCostAnnual,
     totalCarCostMonthly,
-    trainPassIn100Annual,
-    carsharingBackupAnnual,
+    trainPassIn100Annual: annualCommuteCost,
+    carsharingBackupAnnual: 0,
     carFreeTransitCostAnnual,
     netCarFreeSavingsAnnual,
     netCarFreeSavingsMonthly,
@@ -393,23 +397,50 @@ export function calculateCarFreeSavings(): CarFreeSavingsDetails {
 /**
  * Calculates § 15 ZDP mortgage interest tax refund:
  * Capped at 150 000 Kč/year interest, 15% income tax rate, monthly equivalent.
+ * When renting out part of apartment under § 9, ownerOccupiedRatio scales the deductible interest (e.g., 0.70).
  */
-export function calculateMortgageTaxRefundMonthly(annualInterestPaid: number): {
+export function calculateMortgageTaxRefundMonthly(
+  annualInterestPaid: number,
+  ownerOccupiedRatio: number = 1.0
+): {
   annualRefund: number;
   monthlyRefund: number;
   isCapped: boolean;
+  effectiveDeductibleInterest: number;
+  ownerOccupiedRatio: number;
 } {
   const cap = 150000;
-  const isCapped = annualInterestPaid > cap;
-  const deductibleInterest = Math.min(annualInterestPaid, cap);
-  const annualRefund = Math.round(deductibleInterest * 0.15);
+  const eligibleInterest = Math.round(annualInterestPaid * ownerOccupiedRatio);
+  const isCapped = eligibleInterest > cap;
+  const effectiveDeductibleInterest = Math.min(eligibleInterest, cap);
+  const annualRefund = Math.round(effectiveDeductibleInterest * 0.15);
   const monthlyRefund = Math.round(annualRefund / 12);
 
   return {
     annualRefund,
     monthlyRefund,
     isCapped,
+    effectiveDeductibleInterest,
+    ownerOccupiedRatio,
   };
+}
+
+/**
+ * Czech pluralization helper for days of the week:
+ * 1 -> "1 den v týdnu"
+ * 2, 3, 4 -> "2 dny v týdnu", "3 dny v týdnu", "4 dny v týdnu"
+ * 5, 6, 7 -> "5 dní v týdnu", "6 dní v týdnu", "7 dní v týdnu"
+ */
+export function formatDaysCz(n: number): string {
+  if (n === 1) return '1 den v týdnu';
+  if (n >= 2 && n <= 4) return `${n} dny v týdnu`;
+  return `${n} dní v týdnu`;
+}
+
+export function formatDaysCountCz(n: number): string {
+  if (n === 1) return '1 den';
+  if (n >= 2 && n <= 4) return `${n} dny`;
+  return `${n} dní`;
 }
 
 /**

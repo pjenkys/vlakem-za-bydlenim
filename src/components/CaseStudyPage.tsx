@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  ArrowLeft,
   Train,
   Home,
   MapPin,
@@ -35,6 +34,7 @@ import {
   calculateEquityBuilding,
   calculatePragueComparison,
   calculateCarFreeSavings,
+  formatDaysCz,
   MonthlyExpensesBreakdown,
   MonthlyIncomeBreakdown,
 } from '../utils/caseStudyMath';
@@ -57,8 +57,20 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
   // --- Financing & Mortgage State ---
   const [purchasePrice, setPurchasePrice] = useState(CASE_STUDY_LISTING.priceCzk);
+  const [priceInputStr, setPriceInputStr] = useState(formatCzechNumber(CASE_STUDY_LISTING.priceCzk));
   const [downPaymentPercent, setDownPaymentPercent] = useState<10 | 20>(10);
   const [interestRate, setInterestRate] = useState(4.99); // Default 4.99% p.a.
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawDigits = e.target.value.replace(/[^\d]/g, '');
+    if (rawDigits === '') {
+      setPriceInputStr('');
+      return;
+    }
+    const val = parseInt(rawDigits, 10);
+    setPriceInputStr(formatCzechNumber(val));
+    setPurchasePrice(val);
+  };
 
   // --- Property Appreciation State ---
   const [appreciationPercent, setAppreciationPercent] = useState(3.0); // Default 3.0% p.a.
@@ -121,28 +133,37 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     );
   }, [purchasePrice, mortgage.averageMonthlyPrincipalYear1, appreciationPercent]);
 
+  // Proportional ratio for mortgage interest deduction under § 15 ZDP:
+  // 70% when 1 room is officially rented out under § 9 with shared common spaces; 100% when living alone
+  const ownerOccupiedRatio = rentOutRoom && deductRoomRentTax ? 0.70 : 1.0;
+
   // 4. Tax Refund (§ 15 ZDP)
   const taxRefund = useMemo(() => {
-    return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear1);
+    return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear1, ownerOccupiedRatio);
+  }, [mortgage.interestPaidYear1, ownerOccupiedRatio]);
+
+  const taxRefundAlone = useMemo(() => {
+    return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear1, 1.0);
   }, [mortgage.interestPaidYear1]);
 
   const year4TaxRefund = useMemo(() => {
-    return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear4);
-  }, [mortgage.interestPaidYear4]);
+    return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear4, ownerOccupiedRatio);
+  }, [mortgage.interestPaidYear4, ownerOccupiedRatio]);
 
-  // 5. Room Rental Net Income
-  const roomRentNet = useMemo(() => {
-    if (!rentOutRoom) return 0;
-    if (!deductRoomRentTax) return roomRentAmount;
-    const pureRentPart = Math.round(roomRentAmount * 0.75);
-    const tax = Math.round(pureRentPart * 0.7 * 0.15);
-    return roomRentAmount - tax;
-  }, [rentOutRoom, roomRentAmount, deductRoomRentTax]);
+  // 5. Room Rental Net Income (§ 9 ZDP with non-taxable utility deposit)
+  const roommateUtilityDeposit = 1500;
+  const taxablePureRent = Math.max(0, roomRentAmount - roommateUtilityDeposit);
 
   const roomRentTaxMonthly = useMemo(() => {
     if (!rentOutRoom || !deductRoomRentTax) return 0;
-    return roomRentAmount - roomRentNet;
-  }, [rentOutRoom, deductRoomRentTax, roomRentAmount, roomRentNet]);
+    // § 9 ZDP: 30% flat expense allowance, 15% income tax on 70% of taxable pure rent
+    return Math.round(taxablePureRent * 0.70 * 0.15);
+  }, [rentOutRoom, deductRoomRentTax, taxablePureRent]);
+
+  const roomRentNet = useMemo(() => {
+    if (!rentOutRoom) return 0;
+    return roomRentAmount - roomRentTaxMonthly;
+  }, [rentOutRoom, roomRentAmount, roomRentTaxMonthly]);
 
   // 6. Monthly Expenses Summary
   const monthlyExpenses: MonthlyExpensesBreakdown = useMemo(() => {
@@ -207,6 +228,11 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     return monthlyExpenses.totalGrossExpenses - monthlyIncomes.totalIncomeAndOffsets;
   }, [monthlyExpenses.totalGrossExpenses, monthlyIncomes.totalIncomeAndOffsets]);
 
+  // Net cost alone (when living alone in Lovosice without room rental)
+  const netCostAlone = useMemo(() => {
+    return monthlyExpenses.totalGrossExpenses - taxRefundAlone.monthlyRefund;
+  }, [monthlyExpenses.totalGrossExpenses, taxRefundAlone.monthlyRefund]);
+
   // 8. Direct Prague Comparison (Buy vs Rent vs Lovosice)
   const pragueComparison = useMemo(() => {
     return calculatePragueComparison(
@@ -217,10 +243,13 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     );
   }, [purchasePrice, netMonthlyCost, interestRate]);
 
-  // 9. Car-free Savings Math
+  // 9. Car-free Savings Math (linked dynamically to actual annual rail commute cost)
   const carSavings = useMemo(() => {
-    return calculateCarFreeSavings();
-  }, []);
+    return calculateCarFreeSavings(commute.effectiveAnnualCost);
+  }, [commute.effectiveAnnualCost]);
+
+  const netCarSavingsYearly = 106000 - commute.effectiveAnnualCost;
+  const netCarSavingsMonthly = Math.round(netCarSavingsYearly / 12);
 
   // 10. 3-Year Horizon Projection
   const projection = useMemo(() => {
@@ -245,25 +274,6 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
   return (
     <div className="w-full h-full overflow-y-auto bg-paper text-ink pb-20 selection:bg-navy selection:text-white">
-      {/* Top Breadcrumb & Return Bar */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-hairline px-4 py-2.5 md:px-8 shadow-2xs flex items-center justify-between">
-        <button
-          onClick={onBackToMap}
-          className="inline-flex items-center gap-2 text-xs font-bold text-navy hover:text-navy-dark transition-colors px-3 py-1.5 rounded-lg border border-hairline hover:bg-paper"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Zpět na celostátní mapu</span>
-        </button>
-
-        <div className="flex items-center gap-2 text-xs text-ink-muted">
-          <span className="hidden sm:inline">Modelový příklad:</span>
-          <span className="font-bold text-ink">Lovosice · Terezínská 351/83</span>
-          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-price-tier1 border border-price-tier1/20 hidden md:inline">
-            Reálná nabídka Sreality 2026
-          </span>
-        </div>
-      </div>
-
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 space-y-8">
         {/* ========================================================================= */}
         {/* HERO SECTION */}
@@ -486,7 +496,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 <span>Přímé srovnání: Byt 2+1 (53 m²) v Praze vs. v Lovosicích</span>
               </h2>
               <p className="text-xs text-ink-muted mt-0.5">
-                Kolik by stála koupě a nájem stejného bytu přímo v Praze při současných cenách
+                Kolik by stála koupě a nájem stejného bytu přímo v Praze při současných cenách (metodicky shodné parametry)
               </p>
             </div>
           </div>
@@ -516,12 +526,16 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   <span className="font-bold text-rose-700">{formatCzechNumber(pragueComparison.pragueMortgageMonthly)} Kč / měs.</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="font-sans text-ink-muted">Energie a poplatky:</span>
+                  <span className="font-sans text-ink-muted">Energie a SVJ (53 m²):</span>
                   <span className="text-ink">{formatCzechNumber(pragueComparison.pragueOperatingCostsMonthly)} Kč / měs.</span>
                 </div>
+                <div className="flex justify-between text-price-tier1 font-semibold">
+                  <span className="font-sans">Daňová vratka § 15 ZDP:</span>
+                  <span>-{formatCzechNumber(pragueComparison.pragueTaxRefundMonthly)} Kč / měs.</span>
+                </div>
                 <div className="pt-2 border-t border-hairline flex justify-between font-bold text-sm">
-                  <span className="font-sans text-ink">Celkem výdaj:</span>
-                  <span className="text-rose-700">{formatCzechNumber(pragueComparison.pragueTotalMonthlyGross)} Kč / měs.</span>
+                  <span className="font-sans text-ink">Čistý náklad po daních:</span>
+                  <span className="text-rose-700">{formatCzechNumber(pragueComparison.pragueTotalMonthlyNet)} Kč / měs.</span>
                 </div>
               </div>
             </div>
@@ -550,7 +564,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   <span className="text-sm">{formatCzechNumber(pragueComparison.pragueTotalRentMonthly)} Kč / měs.</span>
                 </div>
                 <div className="pt-2 border-t border-rose-200 text-[11px] text-rose-700 leading-tight">
-                  ⚠️ 100% utopený náklad. Za 10 let zaplatíte přes <strong>3,3 milionu Kč</strong> a nevlastníte nic.
+                  ⚠️ 100% utopený náklad. Za 10 let zaplatíte téměř <strong>3,3 mil. Kč bez inflace</strong> (při 3% růstu nájmu přes <strong>3,7 mil. Kč</strong>) a nevlastníte nic.
                 </div>
               </div>
             </div>
@@ -582,8 +596,15 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   <span className="font-sans">Čistý náklad z kapsy:</span>
                   <span className="text-sm">{formatCzechNumber(netMonthlyCost)} Kč / měs.</span>
                 </div>
-                <div className="pt-2 border-t border-price-tier1/30 text-[11px] text-price-tier1 font-semibold leading-tight">
-                  ✓ Úspora <strong>{formatCzechNumber(pragueComparison.monthlyCashSavingsVsPragueRent)} Kč měsíčně</strong> oproti nájmu v Praze + tvorba vlastního majetku!
+                <div className="pt-2 border-t border-price-tier1/30 space-y-1.5">
+                  <div className="text-[11px] text-price-tier1 font-semibold leading-tight">
+                    ✓ Úspora <strong>{formatCzechNumber(pragueComparison.pragueTotalRentMonthly - netMonthlyCost)} Kč měsíčně</strong> oproti nájmu v Praze + tvorba vlastního majetku!
+                  </div>
+                  {rentOutRoom && (
+                    <div className="text-[10.5px] text-emerald-800 bg-white/75 p-1.5 rounded border border-price-tier1/20 font-medium leading-tight">
+                      Včetně pronájmu 1 pokoje (bez spolubydlícího: <strong>{formatCzechNumber(netCostAlone)} Kč/měs.</strong> — stále o <strong>{formatCzechNumber(pragueComparison.pragueTotalRentMonthly - netCostAlone)} Kč</strong> levnější než nájem v Praze!)
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -602,7 +623,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 </span>
                 <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
                   <Car className="w-4 h-4 text-navy" />
-                  <span>Život bez auta: Úspora přes 78 000 Kč ročně (6 500 Kč / měs.)</span>
+                  <span>Život bez auta: Úspora přes {formatCzechNumber(netCarSavingsYearly)} Kč ročně ({formatCzechNumber(netCarSavingsMonthly)} Kč / měs.)</span>
                 </h2>
               </div>
               <p className="text-xs text-ink-muted mt-0.5">
@@ -612,7 +633,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
             <div className="text-right">
               <span className="text-lg md:text-xl font-mono font-extrabold text-price-tier1 tabular-nums">
-                +{formatCzechNumber(carSavings.netCarFreeSavingsAnnual)} Kč / rok
+                +{formatCzechNumber(netCarSavingsYearly)} Kč / rok
               </span>
               <span className="text-[10px] text-ink-muted block">čistá roční úspora v peněžence</span>
             </div>
@@ -652,6 +673,16 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   <span className="font-extrabold text-sm">{formatCzechNumber(carSavings.totalCarCostAnnual)} Kč/rok</span>
                 </div>
               </div>
+
+              {/* Crisp 1-line equation linking car costs to live train commute */}
+              <div className="p-2.5 bg-paper rounded-lg border border-hairline font-mono text-[11px] text-ink flex items-center justify-between flex-wrap gap-2">
+                <span>
+                  <strong className="text-rose-700">106 000 Kč</strong> (provoz auta) − <strong className="text-navy">{formatCzechNumber(commute.effectiveAnnualCost)} Kč</strong> (vlak do Prahy) =
+                </span>
+                <span className="font-bold text-price-tier1 text-xs">
+                  {formatCzechNumber(netCarSavingsYearly)} Kč / rok čistá úspora
+                </span>
+              </div>
             </div>
 
             {/* Car-free verdict */}
@@ -665,7 +696,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               <div className="pt-2 border-t border-hairline flex items-center justify-between text-[11px] text-price-tier1 font-semibold">
                 <span>Úspora bez auta zaplatí:</span>
                 <span className="font-bold font-mono">
-                  {((carSavings.netCarFreeSavingsMonthly / mortgage.monthlyPayment) * 100).toFixed(0)} % splátky hypotéky!
+                  {((netCarSavingsMonthly / mortgage.monthlyPayment) * 100).toFixed(0)} % splátky hypotéky!
                 </span>
               </div>
             </div>
@@ -778,7 +809,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   Počet pracovních dnů v Praze týdně (tam i zpět):
                 </label>
                 <span className="text-sm font-mono font-bold text-navy bg-white px-2.5 py-1 rounded-md border border-hairline">
-                  {tripsPerWeek} dny v týdnu ({tripsPerWeek * workingWeeks * 2} jednotlivých jízd za rok)
+                  {formatDaysCz(tripsPerWeek)} ({tripsPerWeek * workingWeeks * 2} jednotlivých jízd za rok)
                 </span>
               </div>
               <input
@@ -792,9 +823,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               />
               <div className="flex justify-between text-[10px] text-ink-muted font-mono">
                 <span>1 den / týden</span>
-                <span>3 dny (typický hybrid)</span>
-                <span>5 dnů (denní režim)</span>
-                <span>7 dnů (víkendy)</span>
+                <span>3 dny (hybrid)</span>
+                <span>5 dní (denní režim)</span>
+                <span>7 dní (víkendy)</span>
               </div>
             </div>
 
@@ -809,7 +840,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         Doporučení: Vyplatí se přejít na celosíťovou jízdenku IN 100!
                       </h4>
                       <p className="text-xs text-ink/80 mt-0.5 leading-relaxed">
-                        Při {tripsPerWeek} dnech v Praze týdně byste s In Kartou 50 zaplatili{' '}
+                        Při {tripsPerWeek} {tripsPerWeek === 1 ? 'dni' : tripsPerWeek < 5 ? 'dnech' : 'dnech'} v Praze týdně byste s In Kartou 50 zaplatili{' '}
                         <strong>{formatCzechNumber(commute.in50AnnualCost)} Kč/rok</strong> (karta 3 200 Kč + jízdenky). Síťová
                         jízdenka <strong>IN 100 stojí pevně 22 000 Kč/rok</strong> — ušetříte{' '}
                         <strong>{formatCzechNumber(commute.annualSavingsWithIn100)} Kč ročně</strong> a
@@ -928,13 +959,15 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                       </td>
                       <td className="py-1.5 px-3 text-right">
                         {row.diff > 0 ? (
-                          <span className="text-price-tier1">
+                          <span className="text-price-tier1 font-semibold">
                             +{formatCzechNumber(row.diff)} Kč úspora s IN 100
                           </span>
-                        ) : (
-                          <span className="text-ink-muted">
-                            {formatCzechNumber(row.diff)} Kč
+                        ) : row.diff < 0 ? (
+                          <span className="text-slate-600 font-semibold">
+                            úspora {formatCzechNumber(Math.abs(row.diff))} Kč s IN 50
                           </span>
+                        ) : (
+                          <span className="text-ink-muted">0 Kč (stejné)</span>
                         )}
                       </td>
                     </tr>
@@ -968,10 +1001,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               <label className="font-bold text-ink block">Kupní cena nemovitosti:</label>
               <div className="flex items-center gap-2">
                 <input
-                  type="number"
-                  step={50000}
-                  value={purchasePrice}
-                  onChange={(e) => setPurchasePrice(Number(e.target.value))}
+                  type="text"
+                  inputMode="numeric"
+                  value={priceInputStr}
+                  onChange={handlePriceChange}
                   className="w-full bg-white border border-hairline rounded-lg px-3 py-1.5 font-mono font-bold text-ink focus:outline-none focus:border-navy"
                 />
                 <span className="text-ink-muted font-medium">Kč</span>
@@ -1228,7 +1261,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
                 {/* Train commute item */}
                 <div className="p-3 bg-navy/5 rounded-lg border border-navy/20 flex items-center justify-between font-bold text-navy">
-                  <span>12. Dojíždění vlakem do Prahy ({tripsPerWeek} dny v týdnu):</span>
+                  <span>12. Dojíždění vlakem do Prahy ({formatDaysCz(tripsPerWeek)}):</span>
                   <span className="font-mono text-sm">
                     {formatCzechNumber(commute.effectiveMonthlyCost)} Kč / měs.
                   </span>
@@ -1263,6 +1296,11 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                     ze základu daně z příjmů (strop 150 000 Kč). Stát vám vrátí{' '}
                     <strong>{formatCzechNumber(taxRefund.annualRefund)} Kč ročně</strong>.
                   </p>
+                  {rentOutRoom && deductRoomRentTax && (
+                    <div className="text-[10px] font-semibold text-price-tier1 bg-white/70 px-2 py-1 rounded border border-price-tier1/20 mt-1">
+                      ℹ️ Kráceno na 70 % (poměr vlastní bytové potřeby při oficiálním pronájmu 1 pokoje dle § 15 ZDP).
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. Room rental */}
@@ -1314,19 +1352,26 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-ink font-semibold">
-                          <input
-                            type="checkbox"
-                            checked={deductRoomRentTax}
-                            onChange={(e) => setDeductRoomRentTax(e.target.checked)}
-                            className="accent-navy"
-                          />
-                          <span>Zohlednit 15% daň z příjmu (§ 9 ZDP, 30% paušál)</span>
-                        </label>
+                      <div className="space-y-1 pt-1">
+                        <div className="flex items-center justify-between">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-ink font-semibold">
+                            <input
+                              type="checkbox"
+                              checked={deductRoomRentTax}
+                              onChange={(e) => setDeductRoomRentTax(e.target.checked)}
+                              className="accent-navy"
+                            />
+                            <span>Zohlednit 15% daň z příjmu (§ 9 ZDP, 30% paušál)</span>
+                          </label>
+                          {deductRoomRentTax && (
+                            <span className="font-mono text-[11px] text-rose-700 font-bold">
+                              -{formatCzechNumber(roomRentTaxMonthly)} Kč daň
+                            </span>
+                          )}
+                        </div>
                         {deductRoomRentTax && (
-                          <span className="font-mono text-[11px] text-rose-700">
-                            -{formatCzechNumber(roomRentTaxMonthly)} Kč daň
+                          <span className="text-[10px] text-ink-muted block font-mono pl-5">
+                            (z holého nájmu {formatCzechNumber(taxablePureRent)} Kč, zálohy na energie 1 500 Kč se nedaní)
                           </span>
                         )}
                       </div>
@@ -1674,6 +1719,11 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* Subtle methodology strip directly beneath the 2029 comparison table */}
+          <div className="p-3 bg-paper/60 border border-hairline rounded-lg text-[11px] font-mono text-ink-muted leading-relaxed">
+            * Výpočet 2029 zahrnuje 2,5 % roční inflaci provozních nákladů, vlaku i nájmu pokoje ({formatCzechNumber(projection.operatingExpenses2029)} Kč/měs. provoz + vlak) a přepočtenou daňovou vratku z nižších úroků po refinancování ({formatCzechNumber(year4TaxRefund.monthlyRefund)} Kč/měs.).
           </div>
 
           {/* Bottom Conclusion Callout */}
