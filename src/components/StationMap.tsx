@@ -56,13 +56,16 @@ export const StationMap: React.FC<StationMapProps> = ({
     // Add zoom control in top-left
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
-    // CartoDB Positron base tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 19,
-    }).addTo(map);
+    // CartoDB Positron base tiles with official CARTO Basemaps API key
+    L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_5eck_1_870a1281647d601c7f187f5a',
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19,
+      }
+    ).addTo(map);
 
     // Create LayerGroups in order: corridors at bottom, halos in middle, markers on top, hub pin on top
     const corridorsLayer = L.layerGroup().addTo(map);
