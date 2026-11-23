@@ -61,7 +61,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <strong className="text-ink">Ceny nemovitostí:</strong> Mediánové realizované nabídkové ceny bytů (koupě a nájem) k roku 2026 v docházkovém okruhu cca 3,5 km od železniční stanice.
             </li>
             <li>
-              <strong className="text-ink">Hypoteční kalkulace:</strong> Modelováno na standardních parametrech ČNB: 80 % LTV, úroková sazba 4,8 % p.a., splatnost 30 let (360 měsíčních anuitních splátek).
+              <strong className="text-ink">Hypoteční kalkulace:</strong> Modelováno na standardních parametrech ČNB: 80 % LTV, úroková sazba 4,99 % p.a., splatnost 30 let (360 měsíčních anuitních splátek).
             </li>
           </ul>
 

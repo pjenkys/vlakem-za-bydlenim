@@ -45,8 +45,10 @@ export interface RailConnectionData {
   durationMinutes: number;
   lastDirectTrainFromPrague: string;
   peakFrequencyNote: string;
-  in50AnnualCardCzk: number;
+  regularSingleTripCzk: number;
   in50SingleTripCzk: number;
+  in50ReturnTripCzk: number;
+  in50AnnualCardCzk: number;
   in100AnnualCardCzk: number;
   in100MonthlyEquivalentCzk: number;
   defaultWorkingWeeksPerYear: number;
@@ -78,24 +80,36 @@ export const CASE_STUDY_LISTING: SrealityListingSnapshot = {
     'Ve výhradním zastoupení majitelů vám nabízíme ke koupi byt v osobním vlastnictví o dispozici 2+1 s balkonem. Celková výměra podle prohlášení vlastníka včetně sklepa (bez balkonu) je 53,45 m2. Byt se nachází ve 2. NP čtyřpatrového domu starší bytové zástavby v Lovosicích, ulici Terezínská.\n\nByt je v původním, přesto velmi udržovaném stavu. Je kompletně vyklizený, nově vymalovaný a pro nenáročné zájemce je připravený k okamžitému nastěhování. Pro ostatní představuje skvělou příležitost k rekonstrukci a vytvoření moderního domova podle vlastních představ. Vzhledem k lokalitě je byt vhodný také jako zajímavá investiční příležitost.\n\nVelkou předností bytu je jižní orientace oken obou pokojů i kuchyně, která zaručuje dostatek slunečního světla po celý den. Vytápění a ohřev teplé vody jsou zajištěny z dálkového zdroje. Aktuální fond oprav je necelých 1.400 Kč a v nejbližší době se nepředpokládá zvyšování. K bytu náleží prostorná sklepní kóje (4,7 m2). Samotný dům je ve velmi udržovaném stavu, prošel kompletní revitalizací (zateplení, plastová okna, nová fasáda) a spadá do energetické třídy C.\n\nTato lokalita nabízí perfektní zázemí. Veškerá občanská vybavenost, jako jsou obchody, škola, školka, zdravotnická zařízení i restaurace, je v docházkové vzdálenosti. Skvělá je také dopravní dostupnost díky nedalekému vlakovému a autobusovému nádraží.',
   images: [
     {
-      url: 'https://d18-a.sdn.cz/d_18/c_img_qG_A/kcKfrMAkFnIwlW2kIAr1Vz/195a.jpeg?fl=res,1200,800,1|shr,,20|jpg,80',
-      caption: 'Světlý obývací pokoj s jižní orientací a balkonem',
+      url: './images/case-study/01-dum-fasada.webp',
+      caption: 'Revitalizovaný bytový dům s vyznačeným bytem a balkonem v 2. NP (třída PENB C)',
     },
     {
-      url: 'https://d18-a.sdn.cz/d_18/c_img_qG_A/nCR9NVflLCsdQ6PhEIAr1WV/f218.jpeg?fl=res,1200,800,1|shr,,20|jpg,80',
+      url: './images/case-study/02-pudorys-3d.webp',
+      caption: '3D půdorys bytu 2+1 (53 m²) – dva samostatné neprůchozí pokoje a oddělená kuchyně',
+    },
+    {
+      url: './images/case-study/03-obyvaci-pokoj.webp',
+      caption: 'Prosluněný obývací pokoj s jižní orientací, parketami a vstupem na balkon',
+    },
+    {
+      url: './images/case-study/04-druhy-pokoj.webp',
+      caption: 'Druhý samostatný pokoj / ložnice (ideální pro spolubydlícího za 6 000 Kč/měs.)',
+    },
+    {
+      url: './images/case-study/05-kuchyn.webp',
       caption: 'Kuchyně s jídelním koutem a výhledem do zeleně',
     },
     {
-      url: 'https://d18-a.sdn.cz/d_18/c_img_qG_A/kcKfrMAkFCHDToSO0IAr1Wv/30b1.jpeg?fl=res,1200,800,1|shr,,20|jpg,80',
-      caption: 'Neprůchozí ložnice / samostatný pokoj vhodný k pronájmu',
+      url: './images/case-study/06-chodba.webp',
+      caption: 'Vstupní chodba s vestavěnými úložnými prostory a přístupy do všech místností',
     },
     {
-      url: 'https://d18-a.sdn.cz/d_18/c_img_qG_A/nCR9NVflLBaEbFOOgIAr1XK/bbcc.jpeg?fl=res,1200,800,1|shr,,20|jpg,80',
-      caption: 'Vstupní chodba s přístupy do všech místností',
+      url: './images/case-study/07-koupelna.webp',
+      caption: 'Koupelna s vanou, umyvadlem a keramickým obkladem',
     },
     {
-      url: 'https://d18-a.sdn.cz/d_18/c_img_qG_A/nCR9NVflLCnfP0oRSIAr1Xp/8bc7.jpeg?fl=res,1200,800,1|shr,,20|jpg,80',
-      caption: 'Revitalizovaný bytový dům s novou fasádou a zateplením (třída C)',
+      url: './images/case-study/08-wc.webp',
+      caption: 'Samostatná toaleta se servisní skříňkou',
     },
   ],
 };
@@ -125,9 +139,11 @@ export const CASE_STUDY_RAIL: RailConnectionData = {
   durationMinutes: 68,
   lastDirectTrainFromPrague: '23:41',
   peakFrequencyNote: 'Přímý rychlík každých 60 min, posilové vlaky ve špičce každých 30 min',
-  in50AnnualCardCzk: 3200,
-  in50SingleTripCzk: 169, // Zpáteční jízdenka s 50% slevou IN 50
-  in100AnnualCardCzk: 22000,
+  regularSingleTripCzk: 169, // Jedna cesta plné jízdné bez karty
+  in50SingleTripCzk: 84.5,   // S In Kartou 50 stojí jedna cesta polovinu (84,50 Kč)
+  in50ReturnTripCzk: 169,    // Tam a zpět s In Kartou 50 = 169 Kč
+  in50AnnualCardCzk: 3200,   // Roční poplatek za aplikaci IN 50
+  in100AnnualCardCzk: 22000, // Celoroční síťová jízdenka IN 100
   in100MonthlyEquivalentCzk: 1833,
   defaultWorkingWeeksPerYear: 46,
 };

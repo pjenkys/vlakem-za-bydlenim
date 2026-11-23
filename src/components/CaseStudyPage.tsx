@@ -15,9 +15,13 @@ import {
   ChevronUp,
   Users,
   Sliders,
-  Award,
   ArrowRight,
   Settings2,
+  Car,
+  Fuel,
+  Building2,
+  Coins,
+  Gem,
 } from 'lucide-react';
 import {
   CASE_STUDY_LISTING,
@@ -28,6 +32,9 @@ import {
   calculateMortgageDetails,
   calculateMortgageTaxRefundMonthly,
   calculateThreeYearProjection,
+  calculateEquityBuilding,
+  calculatePragueComparison,
+  calculateCarFreeSavings,
   MonthlyExpensesBreakdown,
   MonthlyIncomeBreakdown,
 } from '../utils/caseStudyMath';
@@ -51,7 +58,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
   // --- Financing & Mortgage State ---
   const [purchasePrice, setPurchasePrice] = useState(CASE_STUDY_LISTING.priceCzk);
   const [downPaymentPercent, setDownPaymentPercent] = useState<10 | 20>(10);
-  const [interestRate, setInterestRate] = useState(4.7);
+  const [interestRate, setInterestRate] = useState(4.99); // Default 4.99% p.a.
+
+  // --- Property Appreciation State ---
+  const [appreciationPercent, setAppreciationPercent] = useState(3.0); // Default 3.0% p.a.
 
   // --- Operating Expenses State (defaults based on listing & Lovosice reality) ---
   const [expensesCollapsed, setExpensesCollapsed] = useState(false);
@@ -86,12 +96,12 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     return customNetWage;
   }, [wagePreset, customNetWage]);
 
-  // 1. Commute Calculations
+  // 1. Commute Calculations (IN 50 half-price rule)
   const commute = useMemo(() => {
     return calculateCommutingCosts(tripsPerWeek, workingWeeks, in100Optimized);
   }, [tripsPerWeek, workingWeeks, in100Optimized]);
 
-  // 2. Mortgage Calculations
+  // 2. Mortgage Calculations (Default 4.99%)
   const mortgage = useMemo(() => {
     return calculateMortgageDetails(
       purchasePrice,
@@ -102,7 +112,16 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     );
   }, [purchasePrice, downPaymentPercent, interestRate, refinancingRate]);
 
-  // 3. Tax Refund (§ 15 ZDP)
+  // 3. Equity Building (Principal + Property Appreciation)
+  const equity = useMemo(() => {
+    return calculateEquityBuilding(
+      purchasePrice,
+      mortgage.averageMonthlyPrincipalYear1,
+      appreciationPercent
+    );
+  }, [purchasePrice, mortgage.averageMonthlyPrincipalYear1, appreciationPercent]);
+
+  // 4. Tax Refund (§ 15 ZDP)
   const taxRefund = useMemo(() => {
     return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear1);
   }, [mortgage.interestPaidYear1]);
@@ -111,12 +130,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear4);
   }, [mortgage.interestPaidYear4]);
 
-  // 4. Room Rental Net Income
+  // 5. Room Rental Net Income
   const roomRentNet = useMemo(() => {
     if (!rentOutRoom) return 0;
     if (!deductRoomRentTax) return roomRentAmount;
-    // 30% expenditure pause -> 70% taxable base * 15% tax = 10.5% effective tax on pure rent
-    // Assume 75% of payment is pure rent and 25% is energy advance
     const pureRentPart = Math.round(roomRentAmount * 0.75);
     const tax = Math.round(pureRentPart * 0.7 * 0.15);
     return roomRentAmount - tax;
@@ -127,7 +144,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     return roomRentAmount - roomRentNet;
   }, [rentOutRoom, deductRoomRentTax, roomRentAmount, roomRentNet]);
 
-  // 5. Monthly Expenses Summary
+  // 6. Monthly Expenses Summary
   const monthlyExpenses: MonthlyExpensesBreakdown = useMemo(() => {
     const total =
       mortgage.monthlyPayment +
@@ -173,7 +190,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     commute.effectiveMonthlyCost,
   ]);
 
-  // 6. Monthly Incomes Summary
+  // 7. Monthly Incomes Summary
   const monthlyIncomes: MonthlyIncomeBreakdown = useMemo(() => {
     const total = taxRefund.monthlyRefund + roomRentNet;
     return {
@@ -190,7 +207,22 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     return monthlyExpenses.totalGrossExpenses - monthlyIncomes.totalIncomeAndOffsets;
   }, [monthlyExpenses.totalGrossExpenses, monthlyIncomes.totalIncomeAndOffsets]);
 
-  // 7. 3-Year Horizon Projection
+  // 8. Direct Prague Comparison (Buy vs Rent vs Lovosice)
+  const pragueComparison = useMemo(() => {
+    return calculatePragueComparison(
+      CASE_STUDY_LISTING.usableAreaSqm,
+      purchasePrice,
+      netMonthlyCost,
+      interestRate
+    );
+  }, [purchasePrice, netMonthlyCost, interestRate]);
+
+  // 9. Car-free Savings Math
+  const carSavings = useMemo(() => {
+    return calculateCarFreeSavings();
+  }, []);
+
+  // 10. 3-Year Horizon Projection
   const projection = useMemo(() => {
     return calculateThreeYearProjection(
       activeNetWage,
@@ -261,7 +293,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
             </h1>
             <p className="text-sm md:text-base text-ink-muted mt-1 max-w-3xl leading-relaxed">
               Kompletní rozpad osobních financí, daňových úlev, nákladů na dojíždění rychlíkem do Prahy,
-              spolubydlení a 3letého refinancování na reálném bytě v Terezínské ulici.
+              spolubydlení, života bez auta a 3letého refinancování.
             </p>
           </div>
 
@@ -321,13 +353,13 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
         </div>
 
         {/* ========================================================================= */}
-        {/* SECTION 1: PHOTO GALLERY & SREALITY DATA SNAPSHOT */}
+        {/* SECTION 1: REAL PHOTO GALLERY & SREALITY DATA SNAPSHOT */}
         {/* ========================================================================= */}
         <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-5">
           <div className="flex items-center justify-between border-b border-hairline pb-3">
             <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
               <Home className="w-4 h-4 text-navy" />
-              <span>Parametry bytu a fotogalerie nabídky</span>
+              <span>Reálné fotografie bytu a parametry nabídky</span>
             </h2>
             <span className="text-xs font-mono font-semibold text-ink-muted bg-paper px-2 py-0.5 rounded border border-hairline">
               Kód: {CASE_STUDY_LISTING.id}
@@ -342,26 +374,22 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   src={CASE_STUDY_LISTING.images[selectedPhotoIdx].url}
                   alt={CASE_STUDY_LISTING.images[selectedPhotoIdx].caption}
                   className="w-full h-full object-cover transition-all duration-300"
-                  onError={(e) => {
-                    // Fallback to architectural placeholder if external CDN expires
-                    (e.target as HTMLImageElement).src =
-                      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80';
-                  }}
                 />
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink/80 via-ink/40 to-transparent p-3 text-white text-xs">
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-ink/90 via-ink/50 to-transparent p-3 text-white text-xs">
+                  <span className="font-bold mr-1.5">{selectedPhotoIdx + 1} / {CASE_STUDY_LISTING.images.length}:</span>
                   {CASE_STUDY_LISTING.images[selectedPhotoIdx].caption}
                 </div>
               </div>
 
               {/* Thumbnails */}
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                 {CASE_STUDY_LISTING.images.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedPhotoIdx(idx)}
                     className={`relative aspect-[16/10] rounded-lg overflow-hidden border-2 transition-all ${
                       selectedPhotoIdx === idx
-                        ? 'border-navy shadow-sm scale-[1.02]'
+                        ? 'border-navy shadow-sm scale-[1.03]'
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
@@ -448,6 +476,203 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
         </section>
 
         {/* ========================================================================= */}
+        {/* NEW SECTION: PRAGUE VS LOVOSICE COMPARISON (BUY vs RENT vs LOVOSICE) */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <div>
+              <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-navy" />
+                <span>Přímé srovnání: Byt 2+1 (53 m²) v Praze vs. v Lovosicích</span>
+              </h2>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Kolik by stála koupě a nájem stejného bytu přímo v Praze při současných cenách
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. Prague Buy */}
+            <div className="p-4 rounded-xl border border-hairline bg-paper/50 space-y-3 text-xs">
+              <div className="pb-2 border-b border-hairline">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted block">
+                  Varianta 1
+                </span>
+                <h3 className="font-bold text-sm text-ink">Koupě 2+1 (53 m²) v Praze</h3>
+                <span className="text-[11px] font-mono text-ink-muted">145 000 Kč / m²</span>
+              </div>
+
+              <div className="space-y-1.5 font-mono tabular-nums">
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Kupní cena:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(pragueComparison.praguePurchasePrice)} Kč</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Vlastní zdroje (10 %):</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(pragueComparison.pragueDownPayment10Percent)} Kč</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Splátka hypotéky (4,99 %):</span>
+                  <span className="font-bold text-rose-700">{formatCzechNumber(pragueComparison.pragueMortgageMonthly)} Kč / měs.</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Energie a poplatky:</span>
+                  <span className="text-ink">{formatCzechNumber(pragueComparison.pragueOperatingCostsMonthly)} Kč / měs.</span>
+                </div>
+                <div className="pt-2 border-t border-hairline flex justify-between font-bold text-sm">
+                  <span className="font-sans text-ink">Celkem výdaj:</span>
+                  <span className="text-rose-700">{formatCzechNumber(pragueComparison.pragueTotalMonthlyGross)} Kč / měs.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Prague Rent */}
+            <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/40 space-y-3 text-xs">
+              <div className="pb-2 border-b border-rose-200">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800 block">
+                  Varianta 2
+                </span>
+                <h3 className="font-bold text-sm text-ink">Nájem 2+1 (53 m²) v Praze</h3>
+                <span className="text-[11px] font-mono text-ink-muted">415 Kč / m²</span>
+              </div>
+
+              <div className="space-y-1.5 font-mono tabular-nums">
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Čistý nájem měsíčně:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(pragueComparison.praguePureRentMonthly)} Kč</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Poplatky a zálohy:</span>
+                  <span className="text-ink">{formatCzechNumber(pragueComparison.pragueRentOperatingCostsMonthly)} Kč</span>
+                </div>
+                <div className="flex justify-between text-rose-800 font-bold">
+                  <span className="font-sans">Celkem nájemné:</span>
+                  <span className="text-sm">{formatCzechNumber(pragueComparison.pragueTotalRentMonthly)} Kč / měs.</span>
+                </div>
+                <div className="pt-2 border-t border-rose-200 text-[11px] text-rose-700 leading-tight">
+                  ⚠️ 100% utopený náklad. Za 10 let zaplatíte přes <strong>3,3 milionu Kč</strong> a nevlastníte nic.
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Lovosice Own */}
+            <div className="p-4 rounded-xl border border-price-tier1 bg-emerald-50/50 space-y-3 text-xs shadow-xs">
+              <div className="pb-2 border-b border-price-tier1/30">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-price-tier1 block">
+                  Vítězná varianta
+                </span>
+                <h3 className="font-bold text-sm text-ink">Vlastní 2+1 v Lovosicích + vlak</h3>
+                <span className="text-[11px] font-mono text-price-tier1 font-bold">60 189 Kč / m²</span>
+              </div>
+
+              <div className="space-y-1.5 font-mono tabular-nums">
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Kupní cena:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(purchasePrice)} Kč</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Vlastní zdroje (10 %):</span>
+                  <span className="font-bold text-emerald-800">{formatCzechNumber(mortgage.downPaymentCzk)} Kč</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-sans text-ink-muted">Splátka hypotéky (4,99 %):</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(mortgage.monthlyPayment)} Kč / měs.</span>
+                </div>
+                <div className="flex justify-between text-price-tier1 font-bold">
+                  <span className="font-sans">Čistý náklad z kapsy:</span>
+                  <span className="text-sm">{formatCzechNumber(netMonthlyCost)} Kč / měs.</span>
+                </div>
+                <div className="pt-2 border-t border-price-tier1/30 text-[11px] text-price-tier1 font-semibold leading-tight">
+                  ✓ Úspora <strong>{formatCzechNumber(pragueComparison.monthlyCashSavingsVsPragueRent)} Kč měsíčně</strong> oproti nájmu v Praze + tvorba vlastního majetku!
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* NEW SECTION: CAR-FREE LIFESTYLE & ANNUAL AUTO SAVINGS */}
+        {/* ========================================================================= */}
+        <section className="bg-gradient-to-br from-paper to-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-hairline pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-price-tier1 border border-price-tier1/20">
+                  Finanční superschopnost
+                </span>
+                <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
+                  <Car className="w-4 h-4 text-navy" />
+                  <span>Život bez auta: Úspora přes 78 000 Kč ročně (6 500 Kč / měs.)</span>
+                </h2>
+              </div>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Vzdálenost 210 metrů od nádraží v Lovosicích eliminuje nutnost vlastnit osobní automobil
+              </p>
+            </div>
+
+            <div className="text-right">
+              <span className="text-lg md:text-xl font-mono font-extrabold text-price-tier1 tabular-nums">
+                +{formatCzechNumber(carSavings.netCarFreeSavingsAnnual)} Kč / rok
+              </span>
+              <span className="text-[10px] text-ink-muted block">čistá roční úspora v peněžence</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center text-xs">
+            {/* Car Cost Breakdown */}
+            <div className="lg:col-span-7 space-y-2">
+              <h3 className="font-bold text-ink uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <Fuel className="w-3.5 h-3.5 text-navy" />
+                Reálné průměrné roční náklady na provoz běžného auta v ČR (12 000 km/rok):
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono tabular-nums">
+                <div className="p-2.5 bg-white rounded-lg border border-hairline">
+                  <span className="text-[10px] font-sans text-ink-muted block">Ztráta hodnoty:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(carSavings.carDepreciationAnnual)} Kč/rok</span>
+                </div>
+                <div className="p-2.5 bg-white rounded-lg border border-hairline">
+                  <span className="text-[10px] font-sans text-ink-muted block">Povinné + havarijní:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(carSavings.carInsuranceAnnual)} Kč/rok</span>
+                </div>
+                <div className="p-2.5 bg-white rounded-lg border border-hairline">
+                  <span className="text-[10px] font-sans text-ink-muted block">Servis, STK, pneu:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(carSavings.carMaintenanceAnnual)} Kč/rok</span>
+                </div>
+                <div className="p-2.5 bg-white rounded-lg border border-hairline">
+                  <span className="text-[10px] font-sans text-ink-muted block">Pohonné hmoty:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(carSavings.carFuelAnnual)} Kč/rok</span>
+                </div>
+                <div className="p-2.5 bg-white rounded-lg border border-hairline">
+                  <span className="text-[10px] font-sans text-ink-muted block">Dálnice & parkování:</span>
+                  <span className="font-bold text-ink">{formatCzechNumber(carSavings.carFeesAndParkingAnnual)} Kč/rok</span>
+                </div>
+                <div className="p-2.5 bg-rose-50 rounded-lg border border-rose-200 text-rose-800">
+                  <span className="text-[10px] font-sans text-rose-800 block font-bold">Celkem auto:</span>
+                  <span className="font-extrabold text-sm">{formatCzechNumber(carSavings.totalCarCostAnnual)} Kč/rok</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Car-free verdict */}
+            <div className="lg:col-span-5 p-4 rounded-xl bg-white border border-hairline space-y-2">
+              <h4 className="font-bold text-sm text-navy">
+                Jak to funguje v Lovosicích v praxi?
+              </h4>
+              <p className="text-ink-muted leading-relaxed">
+                Nádraží je za rohem, nákupy i lékaři jsou do 500 metrů. V Praze jste vlakem přímo v centru (žádné modré parkovací zóny ani kolony na D8).
+              </p>
+              <div className="pt-2 border-t border-hairline flex items-center justify-between text-[11px] text-price-tier1 font-semibold">
+                <span>Úspora bez auta zaplatí:</span>
+                <span className="font-bold font-mono">
+                  {((carSavings.netCarFreeSavingsMonthly / mortgage.monthlyPayment) * 100).toFixed(0)} % splátky hypotéky!
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
         {/* SECTION 2: VERIFIED LOCATION & 210 M WALKING MAP */}
         {/* ========================================================================= */}
         <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-4">
@@ -518,10 +743,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
             <div>
               <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
                 <Train className="w-4 h-4 text-navy" />
-                <span>Kalkulátor dojíždění vlakem do Prahy (IN 50 vs. IN 100)</span>
+                <span>Kalkulátor dojíždění vlakem do Prahy (IN 50 poloviční cena vs. IN 100)</span>
               </h2>
               <p className="text-xs text-ink-muted mt-0.5">
-                Chytré porovnání slevové karty IN 50 a neomezené celosíťové jízdenky IN 100
+                Plná jednosměrná jízdenka: 169 Kč · S kartou IN 50 stojí jedna jízda polovinu (84,50 Kč), tam i zpět tedy 169 Kč
               </p>
             </div>
             <div className="flex items-center gap-1.5 bg-paper p-1 rounded-lg border border-hairline text-xs font-semibold">
@@ -550,10 +775,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
             <div className="p-4 bg-paper rounded-xl border border-hairline space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-ink">
-                  Počet cest do Prahy a zpět týdně (hybridní režim):
+                  Počet pracovních dnů v Praze týdně (tam i zpět):
                 </label>
                 <span className="text-sm font-mono font-bold text-navy bg-white px-2.5 py-1 rounded-md border border-hairline">
-                  {tripsPerWeek}× týdně ({tripsPerWeek * workingWeeks} cest za rok)
+                  {tripsPerWeek} dny v týdnu ({tripsPerWeek * workingWeeks * 2} jednotlivých jízd za rok)
                 </span>
               </div>
               <input
@@ -566,10 +791,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 className="w-full h-2 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
               />
               <div className="flex justify-between text-[10px] text-ink-muted font-mono">
-                <span>1× (1 den v týdnu)</span>
-                <span>3× (typický hybrid)</span>
-                <span>5× (denní dojíždění)</span>
-                <span>7× (víkendy)</span>
+                <span>1 den / týden</span>
+                <span>3 dny (typický hybrid)</span>
+                <span>5 dnů (denní režim)</span>
+                <span>7 dnů (víkendy)</span>
               </div>
             </div>
 
@@ -584,8 +809,8 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         Doporučení: Vyplatí se přejít na celosíťovou jízdenku IN 100!
                       </h4>
                       <p className="text-xs text-ink/80 mt-0.5 leading-relaxed">
-                        Při {tripsPerWeek} cestách týdně byste s kartou IN 50 zaplatili{' '}
-                        <strong>{formatCzechNumber(commute.in50AnnualCost)} Kč/rok</strong>. Síťová
+                        Při {tripsPerWeek} dnech v Praze týdně byste s In Kartou 50 zaplatili{' '}
+                        <strong>{formatCzechNumber(commute.in50AnnualCost)} Kč/rok</strong> (karta 3 200 Kč + jízdenky). Síťová
                         jízdenka <strong>IN 100 stojí pevně 22 000 Kč/rok</strong> — ušetříte{' '}
                         <strong>{formatCzechNumber(commute.annualSavingsWithIn100)} Kč ročně</strong> a
                         navíc máte všechny vlaky ČD po celé ČR (včetně víkendů a výletů) zcela zdarma!
@@ -617,9 +842,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               >
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-hairline">
                   <span className="font-bold text-xs text-ink uppercase tracking-wider">
-                    Varianta A: Karta IN 50 (50 % sleva)
+                    Varianta A: In Karta 50 (50 % sleva)
                   </span>
-                  <span className="text-[10px] font-mono font-medium">3 200 Kč karta + 169 Kč jízda</span>
+                  <span className="text-[10px] font-mono font-medium">84,50 Kč / cesta (169 Kč tam i zpět)</span>
                 </div>
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between">
@@ -674,7 +899,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               <table className="w-full text-[11px] text-left">
                 <thead className="bg-paper text-ink-muted border-b border-hairline font-semibold">
                   <tr>
-                    <th className="py-2 px-3">Cest týdně</th>
+                    <th className="py-2 px-3">Dní v Praze týdně</th>
                     <th className="py-2 px-3">IN 50 ročně</th>
                     <th className="py-2 px-3">IN 100 ročně</th>
                     <th className="py-2 px-3">Doporučená volba</th>
@@ -783,24 +1008,24 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               </span>
             </div>
 
-            {/* Interest rate slider */}
+            {/* Interest rate slider (default 4.99%) */}
             <div className="space-y-1">
               <div className="flex justify-between">
                 <label className="font-bold text-ink">Úroková sazba hypotéky:</label>
-                <span className="font-mono font-bold text-navy">{interestRate.toFixed(1)} % p.a.</span>
+                <span className="font-mono font-bold text-navy">{interestRate.toFixed(2)} % p.a.</span>
               </div>
               <input
                 type="range"
                 min={3.5}
                 max={6.5}
-                step={0.1}
+                step={0.01}
                 value={interestRate}
                 onChange={(e) => setInterestRate(Number(e.target.value))}
                 className="w-full h-1.5 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
               />
               <div className="flex justify-between text-[10px] text-ink-muted font-mono">
                 <span>3.5 %</span>
-                <span>4.7 % (2026 průměr)</span>
+                <span>4.99 % (aktuální průměr)</span>
                 <span>6.5 %</span>
               </div>
             </div>
@@ -823,7 +1048,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 {/* 1. Mortgage payment */}
                 <div className="p-3 bg-paper rounded-lg border border-hairline space-y-1">
                   <div className="flex justify-between font-bold text-ink">
-                    <span>1. Splátka hypotéky (anuitní):</span>
+                    <span>1. Splátka hypotéky (anuitní při {interestRate.toFixed(2)} %):</span>
                     <span className="font-mono text-sm">
                       {formatCzechNumber(mortgage.monthlyPayment)} Kč / měs.
                     </span>
@@ -1003,7 +1228,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
                 {/* Train commute item */}
                 <div className="p-3 bg-navy/5 rounded-lg border border-navy/20 flex items-center justify-between font-bold text-navy">
-                  <span>12. Dojíždění vlakem do Prahy ({tripsPerWeek}× týdně):</span>
+                  <span>12. Dojíždění vlakem do Prahy ({tripsPerWeek} dny v týdnu):</span>
                   <span className="font-mono text-sm">
                     {formatCzechNumber(commute.effectiveMonthlyCost)} Kč / měs.
                   </span>
@@ -1115,6 +1340,58 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                     </div>
                   )}
                 </div>
+
+                {/* 3. Equity Building Card (Principal + Property Appreciation) */}
+                <div className="p-4 bg-emerald-50/90 rounded-xl border border-price-tier1/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase tracking-wider text-price-tier1 flex items-center gap-1.5">
+                      <Gem className="w-4 h-4 text-price-tier1" />
+                      Budování majetku (Jistina + Růst cen nemovitostí)
+                    </span>
+                    <span className="font-mono font-extrabold text-sm text-price-tier1">
+                      +{formatCzechNumber(equity.totalMonthlyEquityCreated)} Kč / měs.
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-[11px]">
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">Splácení jistiny úvěru (1. rok průměr):</span>
+                      <span className="font-mono font-bold text-ink">
+                        +{formatCzechNumber(equity.monthlyPrincipalRepaid)} Kč / měs.
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-ink-muted">
+                          Očekávaný roční růst cen nemovitostí ({appreciationPercent.toFixed(1)} % p.a.):
+                        </span>
+                        <span className="font-mono font-bold text-price-tier1">
+                          +{formatCzechNumber(equity.monthlyAppreciationCzk)} Kč / měs.
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={6}
+                        step={0.5}
+                        value={appreciationPercent}
+                        onChange={(e) => setAppreciationPercent(Number(e.target.value))}
+                        className="w-full h-1.5 bg-hairline rounded-lg appearance-none cursor-pointer accent-emerald-700"
+                      />
+                      <div className="flex justify-between text-[10px] text-ink-muted font-mono">
+                        <span>0 % (stagnace)</span>
+                        <span>3.0 % (dlouhodobý průměr)</span>
+                        <span>6.0 %</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-price-tier1/20 text-ink/80 leading-relaxed text-[11px]">
+                      Při 3% ročním zhodnocení byt naroste o <strong>{formatCzechNumber(equity.annualAppreciationCzk)} Kč ročně</strong>.
+                      Spolu se splátkou jistiny se vám každý měsíc zhodnotí majetek o <strong>{formatCzechNumber(equity.totalMonthlyEquityCreated)} Kč</strong>!
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1161,14 +1438,14 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
               <div className="p-2.5 rounded-lg bg-emerald-500/20 border border-emerald-400/30">
                 <span className="text-[11px] text-emerald-200 font-bold block flex items-center gap-1">
-                  <Award className="w-3.5 h-3.5" />
-                  Budování vlastního majetku:
+                  <Coins className="w-3.5 h-3.5" />
+                  Celková tvorba vlastního majetku:
                 </span>
                 <span className="font-mono font-bold text-sm text-emerald-100">
-                  +{formatCzechNumber(mortgage.averageMonthlyPrincipalYear1)} Kč/měs.
+                  +{formatCzechNumber(equity.totalMonthlyEquityCreated)} Kč/měs.
                 </span>
                 <span className="text-[10px] text-emerald-200 block mt-0.5">
-                  splátka jistiny zůstává ve vašem vlastnictví
+                  jistina ({formatCzechNumber(equity.monthlyPrincipalRepaid)} Kč) + růst ({formatCzechNumber(equity.monthlyAppreciationCzk)} Kč)
                 </span>
               </div>
             </div>
@@ -1264,13 +1541,13 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
             <div className="space-y-1">
               <div className="flex justify-between">
                 <label className="font-bold text-ink">Sazba při refinancování (za 3 roky):</label>
-                <span className="font-mono font-bold text-navy">{refinancingRate.toFixed(1)} % p.a.</span>
+                <span className="font-mono font-bold text-navy">{refinancingRate.toFixed(2)} % p.a.</span>
               </div>
               <input
                 type="range"
                 min={3.0}
                 max={6.5}
-                step={0.1}
+                step={0.05}
                 value={refinancingRate}
                 onChange={(e) => setRefinancingRate(Number(e.target.value))}
                 className="w-full h-1.5 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
@@ -1281,7 +1558,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   onClick={() => setRefinancingRate(interestRate)}
                   className="text-navy underline hover:text-navy-dark"
                 >
-                  Stejná jako dnes ({interestRate} %)
+                  Stejná jako dnes ({interestRate.toFixed(2)} %)
                 </button>
                 <span>6.5 %</span>
               </div>

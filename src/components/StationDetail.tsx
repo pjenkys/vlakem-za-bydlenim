@@ -259,7 +259,7 @@ export const StationDetail: React.FC<StationDetailProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="text-ink-muted flex items-center gap-1">
                   <Percent className="w-3 h-3 text-navy" />
-                  Měsíční splátka hypotéky (80 % LTV, 4,8 %, 30 let):
+                  Měsíční splátka hypotéky (80 % LTV, 4,99 %, 30 let):
                 </span>
                 <span className="font-mono font-bold text-ink tabular-nums">
                   {formatCzechNumber(metrics.monthlyMortgage)} Kč/měs.

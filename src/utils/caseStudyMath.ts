@@ -1,6 +1,10 @@
 export interface CommuteCalculationResult {
   tripsPerWeek: number;
   weeksPerYear: number;
+  regularSingleTripCzk: number;
+  regularReturnTripCzk: number;
+  in50SingleTripCzk: number;
+  in50ReturnTripCzk: number;
   in50AnnualCost: number;
   in50MonthlyCost: number;
   in100AnnualCost: number;
@@ -22,6 +26,7 @@ export interface MortgageAmortizationDetails {
   loanAmount: number;
   downPaymentCzk: number;
   downPaymentPercent: number;
+  interestRateAnnual: number;
   monthlyPayment: number;
   interestPaidYear1: number;
   principalPaidYear1: number;
@@ -32,6 +37,55 @@ export interface MortgageAmortizationDetails {
   refinancedMonthlyPayment: number;
   monthlyMortgagePaymentDrop: number;
   interestPaidYear4: number;
+}
+
+export interface EquityBuildingDetails {
+  monthlyPrincipalRepaid: number;
+  annualAppreciationPercent: number;
+  annualAppreciationCzk: number;
+  monthlyAppreciationCzk: number;
+  totalMonthlyEquityCreated: number;
+  totalAnnualEquityCreated: number;
+}
+
+export interface PragueComparisonDetails {
+  apartmentAreaSqm: number;
+  // Prague Buy
+  praguePricePerSqm: number;
+  praguePurchasePrice: number;
+  pragueDownPayment10Percent: number;
+  pragueMortgageMonthly: number;
+  pragueOperatingCostsMonthly: number;
+  pragueTotalMonthlyGross: number;
+  // Prague Rent
+  pragueRentPerSqm: number;
+  praguePureRentMonthly: number;
+  pragueRentOperatingCostsMonthly: number;
+  pragueTotalRentMonthly: number;
+  // Lovosice Own
+  lovosicePurchasePrice: number;
+  lovosiceDownPayment10Percent: number;
+  lovosiceMortgageMonthly: number;
+  // Differences
+  purchasePriceSavingsCzk: number;
+  downPaymentSavingsCzk: number;
+  monthlyMortgageSavingsCzk: number;
+  monthlyCashSavingsVsPragueRent: number;
+}
+
+export interface CarFreeSavingsDetails {
+  carDepreciationAnnual: number;
+  carInsuranceAnnual: number;
+  carMaintenanceAnnual: number;
+  carFuelAnnual: number;
+  carFeesAndParkingAnnual: number;
+  totalCarCostAnnual: number;
+  totalCarCostMonthly: number;
+  trainPassIn100Annual: number;
+  carsharingBackupAnnual: number;
+  carFreeTransitCostAnnual: number;
+  netCarFreeSavingsAnnual: number;
+  netCarFreeSavingsMonthly: number;
 }
 
 export interface MonthlyExpensesBreakdown {
@@ -78,18 +132,23 @@ export interface ThreeYearProjectionResult {
 
 /**
  * Calculates IN 50 vs. IN 100 rail commuting costs.
+ * Regular single trip = 169 Kč. With IN 50 = 84.50 Kč (half price).
+ * Full day commute (return trip) = 169 Kč with IN 50 (vs 338 Kč without card).
  */
 export function calculateCommutingCosts(
   tripsPerWeek: number,
   weeksPerYear: number = 46,
   in100Optimized: boolean = true
 ): CommuteCalculationResult {
+  const regularSingleTripCzk = 169;
+  const regularReturnTripCzk = regularSingleTripCzk * 2; // 338 Kč
+  const in50SingleTripCzk = 84.5; // Polovina běžného jízdného
+  const in50ReturnTripCzk = 169;   // 84.50 * 2 = 169 Kč tam i zpět
   const in50CardAnnual = 3200;
-  const in50ReturnTicket = 169;
   const in100FixedAnnual = 22000;
   const in100Monthly = Math.round(in100FixedAnnual / 12);
 
-  const in50AnnualCost = in50CardAnnual + tripsPerWeek * weeksPerYear * in50ReturnTicket;
+  const in50AnnualCost = in50CardAnnual + tripsPerWeek * weeksPerYear * in50ReturnTripCzk;
   const in50MonthlyCost = Math.round(in50AnnualCost / 12);
 
   const shouldRecommendIn100 = in50AnnualCost > in100FixedAnnual;
@@ -102,7 +161,7 @@ export function calculateCommutingCosts(
   const effectiveMonthlyCost = Math.round(effectiveAnnualCost / 12);
 
   const breakEvenTable = [1, 2, 3, 4, 5, 6, 7].map((trips) => {
-    const cost50 = in50CardAnnual + trips * weeksPerYear * in50ReturnTicket;
+    const cost50 = in50CardAnnual + trips * weeksPerYear * in50ReturnTripCzk;
     const is100Better = cost50 > in100FixedAnnual;
     return {
       trips,
@@ -116,6 +175,10 @@ export function calculateCommutingCosts(
   return {
     tripsPerWeek,
     weeksPerYear,
+    regularSingleTripCzk,
+    regularReturnTripCzk,
+    in50SingleTripCzk,
+    in50ReturnTripCzk,
     in50AnnualCost,
     in50MonthlyCost,
     in100AnnualCost: in100FixedAnnual,
@@ -130,11 +193,12 @@ export function calculateCommutingCosts(
 
 /**
  * Performs month-by-month mortgage amortization for initial 30 years and 3-year refinancing.
+ * Default mortgage rate: 4.99% p.a.
  */
 export function calculateMortgageDetails(
   purchasePrice: number,
   downPaymentPercent: number = 10,
-  interestRateAnnual: number = 4.7,
+  interestRateAnnual: number = 4.99,
   refinancingRateAnnual: number = 4.4,
   loanTermMonths: number = 360
 ): MortgageAmortizationDetails {
@@ -191,6 +255,7 @@ export function calculateMortgageDetails(
     loanAmount,
     downPaymentCzk,
     downPaymentPercent,
+    interestRateAnnual,
     monthlyPayment,
     interestPaidYear1: Math.round(interestPaidYear1),
     principalPaidYear1: Math.round(principalPaidYear1),
@@ -200,6 +265,128 @@ export function calculateMortgageDetails(
     refinancedMonthlyPayment,
     monthlyMortgagePaymentDrop,
     interestPaidYear4: Math.round(interestPaidYear4),
+  };
+}
+
+/**
+ * Calculates building equity: principal repayment + property value appreciation.
+ */
+export function calculateEquityBuilding(
+  purchasePrice: number,
+  monthlyPrincipal: number,
+  annualAppreciationPercent: number = 3.0
+): EquityBuildingDetails {
+  const annualAppreciationCzk = Math.round(purchasePrice * (annualAppreciationPercent / 100));
+  const monthlyAppreciationCzk = Math.round(annualAppreciationCzk / 12);
+  const totalMonthlyEquityCreated = monthlyPrincipal + monthlyAppreciationCzk;
+  const totalAnnualEquityCreated = totalMonthlyEquityCreated * 12;
+
+  return {
+    monthlyPrincipalRepaid: monthlyPrincipal,
+    annualAppreciationPercent,
+    annualAppreciationCzk,
+    monthlyAppreciationCzk,
+    totalMonthlyEquityCreated,
+    totalAnnualEquityCreated,
+  };
+}
+
+/**
+ * Calculates direct financial comparison between Lovosice 2+1 and the exact same 2+1 in Prague.
+ */
+export function calculatePragueComparison(
+  apartmentAreaSqm: number = 53,
+  lovosicePurchasePrice: number = 3190000,
+  lovosiceNetMonthlyCost: number = 7800,
+  interestRateAnnual: number = 4.99
+): PragueComparisonDetails {
+  const praguePricePerSqm = 145000;
+  const praguePurchasePrice = apartmentAreaSqm * praguePricePerSqm; // 7 685 000 Kč
+  const pragueDownPayment10Percent = Math.round(praguePurchasePrice * 0.1); // 768 500 Kč
+  const pragueLoan = praguePurchasePrice - pragueDownPayment10Percent; // 6 916 500 Kč
+
+  const monthlyRate = (interestRateAnnual / 100) / 12;
+  const pragueMortgageMonthly = Math.round(
+    (pragueLoan * (monthlyRate * Math.pow(1 + monthlyRate, 360))) /
+      (Math.pow(1 + monthlyRate, 360) - 1)
+  ); // ~37 080 Kč/měs.
+  const pragueOperatingCostsMonthly = 5500;
+  const pragueTotalMonthlyGross = pragueMortgageMonthly + pragueOperatingCostsMonthly; // ~42 580 Kč/měs.
+
+  // Prague Rent
+  const pragueRentPerSqm = 415;
+  const praguePureRentMonthly = apartmentAreaSqm * pragueRentPerSqm; // ~21 995 Kč
+  const pragueRentOperatingCostsMonthly = 5500;
+  const pragueTotalRentMonthly = praguePureRentMonthly + pragueRentOperatingCostsMonthly; // ~27 495 Kč
+
+  // Lovosice values
+  const lovosiceDownPayment10Percent = Math.round(lovosicePurchasePrice * 0.1);
+  const lovosiceLoan = lovosicePurchasePrice - lovosiceDownPayment10Percent;
+  const lovosiceMortgageMonthly = Math.round(
+    (lovosiceLoan * (monthlyRate * Math.pow(1 + monthlyRate, 360))) /
+      (Math.pow(1 + monthlyRate, 360) - 1)
+  );
+
+  return {
+    apartmentAreaSqm,
+    praguePricePerSqm,
+    praguePurchasePrice,
+    pragueDownPayment10Percent,
+    pragueMortgageMonthly,
+    pragueOperatingCostsMonthly,
+    pragueTotalMonthlyGross,
+    pragueRentPerSqm,
+    praguePureRentMonthly,
+    pragueRentOperatingCostsMonthly,
+    pragueTotalRentMonthly,
+    lovosicePurchasePrice,
+    lovosiceDownPayment10Percent,
+    lovosiceMortgageMonthly,
+    purchasePriceSavingsCzk: praguePurchasePrice - lovosicePurchasePrice,
+    downPaymentSavingsCzk: pragueDownPayment10Percent - lovosiceDownPayment10Percent,
+    monthlyMortgageSavingsCzk: pragueMortgageMonthly - lovosiceMortgageMonthly,
+    monthlyCashSavingsVsPragueRent: pragueTotalRentMonthly - lovosiceNetMonthlyCost,
+  };
+}
+
+/**
+ * Calculates realistic annual car ownership savings vs. rail commuting.
+ */
+export function calculateCarFreeSavings(): CarFreeSavingsDetails {
+  const carDepreciationAnnual = 40000;
+  const carInsuranceAnnual = 14000;
+  const carMaintenanceAnnual = 15000;
+  const carFuelAnnual = 32000;
+  const carFeesAndParkingAnnual = 5000;
+
+  const totalCarCostAnnual =
+    carDepreciationAnnual +
+    carInsuranceAnnual +
+    carMaintenanceAnnual +
+    carFuelAnnual +
+    carFeesAndParkingAnnual; // 106 000 Kč
+  const totalCarCostMonthly = Math.round(totalCarCostAnnual / 12); // ~8 833 Kč
+
+  const trainPassIn100Annual = 22000;
+  const carsharingBackupAnnual = 6000; // Rezerva na občasný carsharing / půjčovnu dodávky
+  const carFreeTransitCostAnnual = trainPassIn100Annual + carsharingBackupAnnual; // 28 000 Kč
+
+  const netCarFreeSavingsAnnual = totalCarCostAnnual - carFreeTransitCostAnnual; // 78 000 Kč
+  const netCarFreeSavingsMonthly = Math.round(netCarFreeSavingsAnnual / 12); // ~6 500 Kč
+
+  return {
+    carDepreciationAnnual,
+    carInsuranceAnnual,
+    carMaintenanceAnnual,
+    carFuelAnnual,
+    carFeesAndParkingAnnual,
+    totalCarCostAnnual,
+    totalCarCostMonthly,
+    trainPassIn100Annual,
+    carsharingBackupAnnual,
+    carFreeTransitCostAnnual,
+    netCarFreeSavingsAnnual,
+    netCarFreeSavingsMonthly,
   };
 }
 

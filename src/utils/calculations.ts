@@ -80,11 +80,11 @@ export function parseTrainTimeInMinutes(timeStr: string): number {
 
 /**
  * Calculates monthly mortgage payment:
- * 80% LTV, 4.8% p.a., 30 years (360 months)
+ * 80% LTV, 4.99% p.a., 30 years (360 months)
  */
 export function calculateMortgageMonthly(propertyPrice: number): number {
   const principal = propertyPrice * 0.8;
-  const annualRate = 0.048;
+  const annualRate = 0.0499;
   const monthlyRate = annualRate / 12;
   const totalMonths = 360;
 
