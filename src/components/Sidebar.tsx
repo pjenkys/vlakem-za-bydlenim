@@ -11,6 +11,7 @@ import {
   HubInfo,
   HousingMode,
   ApartmentSize,
+  APARTMENT_SIZE_MAP,
   FilterState,
   FrequencyFilter,
   LastTrainFilter,
@@ -408,20 +409,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
 
                   <div className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: metrics.colorHex }}
-                      />
-                      <span className="font-mono font-bold text-xs text-ink tabular-nums">
-                        {formatCzechNumber(metrics.pricePerSqm)}
-                      </span>
-                      <span className="text-[10px] text-ink-muted">Kč/m²</span>
+                    <div className="font-mono font-bold text-xs sm:text-sm text-navy tabular-nums">
+                      {formatCzechNumber(metrics.totalApartmentPrice)}&nbsp;Kč
+                      {mode === 'rent' && <span className="text-[10px] font-normal text-ink-muted">/měs.</span>}
                     </div>
 
-                    <div className="mt-0.5">
+                    <div className="flex items-center justify-end gap-1 text-[10px] text-ink-muted mt-0.5">
+                      <div
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: metrics.colorHex }}
+                      />
+                      <span className="font-mono tabular-nums">{formatCzechNumber(metrics.pricePerSqm)} Kč/m²</span>
+                      <span className="font-medium text-ink/70">· {APARTMENT_SIZE_MAP[apartmentSize].shortLabel}</span>
+                    </div>
+
+                    <div className="mt-1">
                       <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border inline-block ${
                           diffBadge.isPositive
                             ? 'bg-emerald-50 text-price-tier1 border-price-tier1/20'
                             : 'bg-rose-50 text-price-tier5 border-price-tier5/20'

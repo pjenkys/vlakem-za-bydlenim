@@ -44,7 +44,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               Teze projektu Vlakem za bydlením
             </h3>
             <p className="text-xs text-ink-muted">
-              Při 65m² bytě činí rozdíl v pořizovací ceně mezi centrem metropole a příměstským satelitem s páteřní tratí často <strong>více než 4 miliony Kč</strong>. To v rodinném rozpočtu představuje úsporu na měsíční splátce hypotéky přes <strong>16 000 Kč každý měsíc</strong> po dobu 30 let.
+              Při standardním bytě (45–70 m²) činí rozdíl v pořizovací ceně mezi centrem metropole a příměstským satelitem s páteřní tratí často <strong>více než 3 až 5 milionů Kč</strong>. To v rodinném rozpočtu představuje úsporu na měsíční splátce hypotéky přes <strong>15 000 až 25 000 Kč každý měsíc</strong> po dobu 30 let.
             </p>
           </div>
 

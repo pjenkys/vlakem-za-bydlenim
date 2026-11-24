@@ -2,7 +2,26 @@ export type HubId = 'praha' | 'brno' | 'plzen' | 'ostrava';
 
 export type HousingMode = 'buy' | 'rent';
 
-export type ApartmentSize = 45 | 65 | 85;
+export type ApartmentSize = 30 | 45 | 70;
+
+export interface ApartmentSizeConfig {
+  size: ApartmentSize;
+  layout: string;
+  label: string;
+  shortLabel: string;
+}
+
+export const APARTMENT_SIZES: ApartmentSizeConfig[] = [
+  { size: 30, layout: '1+kk', label: '1+kk (30 m²)', shortLabel: '1+kk' },
+  { size: 45, layout: '2+kk', label: '2+kk (45 m²)', shortLabel: '2+kk' },
+  { size: 70, layout: '3+kk', label: '3+kk (70 m²)', shortLabel: '3+kk' },
+];
+
+export const APARTMENT_SIZE_MAP: Record<ApartmentSize, ApartmentSizeConfig> = {
+  30: APARTMENT_SIZES[0],
+  45: APARTMENT_SIZES[1],
+  70: APARTMENT_SIZES[2],
+};
 
 export type FrequencyFilter = 'all' | '1h' | '2h' | '4h';
 

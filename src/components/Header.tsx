@@ -1,6 +1,6 @@
 import React from 'react';
 import { Train, Info, Map, List, Home, KeyRound, Building, ArrowLeft } from 'lucide-react';
-import { HubId, HousingMode, ApartmentSize } from '../types';
+import { HubId, HousingMode, ApartmentSize, APARTMENT_SIZES } from '../types';
 import { HUBS, HUB_IDS } from '../data/hubs';
 
 interface HeaderProps {
@@ -227,19 +227,21 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider pl-1.5 pr-1 hidden sm:inline">
                 Byt:
               </span>
-              {([45, 65, 85] as ApartmentSize[]).map((size) => {
-                const isActive = apartmentSize === size;
+              {APARTMENT_SIZES.map((opt) => {
+                const isActive = apartmentSize === opt.size;
                 return (
                   <button
-                    key={size}
-                    onClick={() => onApartmentSizeChange(size)}
-                    className={`px-2.5 py-1 font-mono font-medium rounded-md tabular-nums transition-all ${
+                    key={opt.size}
+                    onClick={() => onApartmentSizeChange(opt.size)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
                       isActive
-                        ? 'bg-white text-ink font-bold shadow-sm'
+                        ? 'bg-white text-navy font-bold shadow-sm'
                         : 'text-ink-muted hover:text-ink'
                     }`}
+                    title={opt.label}
                   >
-                    {size}&nbsp;m²
+                    <span className="hidden md:inline">{opt.label}</span>
+                    <span className="md:hidden">{opt.shortLabel}</span>
                   </button>
                 );
               })}

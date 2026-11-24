@@ -13,7 +13,7 @@ import {
   ArrowRight,
   Building,
 } from 'lucide-react';
-import { Station, HubInfo, HousingMode, ApartmentSize, TrainConnection } from '../types';
+import { Station, HubInfo, HousingMode, ApartmentSize, APARTMENT_SIZE_MAP, TrainConnection } from '../types';
 import { ResolvedPragueConnection } from '../utils/pragueRouting';
 import {
   calculateStationMetrics,
@@ -227,14 +227,16 @@ export const StationDetail: React.FC<StationDetailProps> = ({
             <Banknote className="w-4 h-4" />
             Ekonomika bydlení ({hub.vsLabel})
           </h3>
-          <span className="text-xs text-ink-muted font-medium">Byt {apartmentSize} m²</span>
+          <span className="text-xs text-ink-muted font-medium">
+            Byt {APARTMENT_SIZE_MAP[apartmentSize].layout} ({apartmentSize}&nbsp;m²)
+          </span>
         </div>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 bg-paper rounded-lg border border-hairline">
             <div>
               <span className="text-xs text-ink-muted block">
-                Odhadovaná cena {apartmentSize}m² bytu:
+                Odhadovaná cena bytu {APARTMENT_SIZE_MAP[apartmentSize].layout} ({apartmentSize}&nbsp;m²):
               </span>
               <span className="text-lg font-mono font-bold text-ink tabular-nums">
                 {formatCzechNumber(metrics.totalApartmentPrice)}&nbsp;Kč

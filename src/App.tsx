@@ -31,7 +31,7 @@ export function App() {
   const [pragueTargetMode, setPragueTargetMode] = useState<PragueTargetMode>('hln');
   const [pragueDetailMode, setPragueDetailMode] = useState<boolean>(false);
   const [mode, setMode] = useState<HousingMode>('buy');
-  const [apartmentSize, setApartmentSize] = useState<ApartmentSize>(65);
+  const [apartmentSize, setApartmentSize] = useState<ApartmentSize>(45);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [hoveredStationId, setHoveredStationId] = useState<string | null>(null);

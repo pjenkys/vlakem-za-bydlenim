@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Maximize2, Crosshair } from 'lucide-react';
-import { Station, HubInfo, HousingMode, ApartmentSize, PragueTargetMode, PragueStationId, TrainConnection } from '../types';
+import { Station, HubInfo, HousingMode, ApartmentSize, APARTMENT_SIZE_MAP, PragueTargetMode, PragueStationId, TrainConnection } from '../types';
 import { getPriceColor, formatCzechNumber, PRICE_TIERS } from '../utils/calculations';
 import { PRAGUE_STATIONS, PRAGUE_STATION_IDS } from '../data/pragueStations';
 import { isResolvedPragueConnection, ResolvedPragueConnection } from '../utils/pragueRouting';
@@ -28,7 +28,7 @@ export const StationMap: React.FC<StationMapProps> = ({
   filteredStationIds,
   activeHub,
   mode,
-  apartmentSize: _apartmentSize,
+  apartmentSize,
   selectedStationId,
   onSelectStation,
   hoveredStationId,
@@ -333,15 +333,27 @@ export const StationMap: React.FC<StationMapProps> = ({
           ? `<div class="text-[10px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded font-sans mt-0.5 font-medium">S přestupem v Praze (${resolved.viaStationName ? 'přes ' + resolved.viaStationName : ''})</div>`
           : '';
 
+        const sizeConfig = APARTMENT_SIZE_MAP[apartmentSize];
+        const totalPrice = pricePerSqm * apartmentSize;
+
         const tooltipContent = `
-          <div class="space-y-0.5">
+          <div class="space-y-1">
             <div class="font-bold text-ink">${station.name}</div>
             <div class="text-[11px] font-mono text-navy font-bold">
               🚂 ${durationMin} min ${targetLabel}
             </div>
             ${transferBadge}
-            <div class="text-[11px] font-mono text-ink-muted">
-              ${formatCzechNumber(pricePerSqm)} Kč/m² ${passesFilter ? '' : '<span class="text-rose-600 font-sans">(mimo filtry)</span>'}
+            <div class="pt-1 mt-0.5 border-t border-hairline/80 flex items-baseline justify-between gap-3">
+              <span class="text-[11px] font-bold text-navy">
+                ${sizeConfig.layout} (${apartmentSize} m²):
+              </span>
+              <span class="font-mono font-bold text-xs text-ink">
+                ${formatCzechNumber(totalPrice)} Kč${mode === 'rent' ? '/měs.' : ''}
+              </span>
+            </div>
+            <div class="text-[10px] font-mono text-ink-muted flex items-center justify-between">
+              <span>${formatCzechNumber(pricePerSqm)} Kč/m²</span>
+              ${passesFilter ? '' : '<span class="text-rose-600 font-sans font-semibold">(mimo filtry)</span>'}
             </div>
           </div>
         `;
@@ -395,6 +407,7 @@ export const StationMap: React.FC<StationMapProps> = ({
     filteredStationIds,
     activeHub,
     mode,
+    apartmentSize,
     selectedStationId,
     hoveredStationId,
     pragueDetailMode,
