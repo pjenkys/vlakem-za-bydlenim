@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { HubId, HousingMode, ApartmentSize, FilterState } from './types';
+import { HubId, HousingMode, ApartmentSize, FilterState, PragueTargetMode, TrainConnection } from './types';
 import { HUBS } from './data/hubs';
 import { STATIONS } from './data/stations';
+import { PRAGUE_STATIONS } from './data/pragueStations';
+import { resolvePragueConnection, ResolvedPragueConnection } from './utils/pragueRouting';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { StationMap } from './components/StationMap';
@@ -26,6 +28,8 @@ export function App() {
   });
 
   const [activeHubId, setActiveHubId] = useState<HubId>('praha');
+  const [pragueTargetMode, setPragueTargetMode] = useState<PragueTargetMode>('hln');
+  const [pragueDetailMode, setPragueDetailMode] = useState<boolean>(false);
   const [mode, setMode] = useState<HousingMode>('buy');
   const [apartmentSize, setApartmentSize] = useState<ApartmentSize>(65);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -50,10 +54,20 @@ export function App() {
     window.location.hash = newView === 'case-study' ? '#/modelovy-priklad' : '#/';
   }, []);
 
-  const currentHub = HUBS[activeHubId];
+  const currentHub = useMemo(() => {
+    if (activeHubId === 'praha' && pragueTargetMode !== 'first') {
+      const targetSt = PRAGUE_STATIONS[pragueTargetMode];
+      return {
+        ...HUBS.praha,
+        stationName: targetSt.name,
+        coords: targetSt.coords,
+      };
+    }
+    return HUBS[activeHubId];
+  }, [activeHubId, pragueTargetMode]);
 
   // Hub switch cleanup:
-  // Whenever activeHub changes, immediately clear selectedStationId if no connection or equals activeHub
+  // Whenever activeHub changes, immediately clear selectedStationId if no connection, equals activeHub, or detail-only outside Prague
   const handleHubChange = useCallback((newHubId: HubId) => {
     setActiveHubId(newHubId);
     setSelectedStationId((prevId) => {
@@ -61,8 +75,20 @@ export function App() {
       if (prevId === newHubId) return null;
       const st = STATIONS.find((s) => s.id === prevId);
       if (!st || !st.connections[newHubId]) return null;
+      if (newHubId !== 'praha' && st.isDetailOnly) return null;
       return prevId;
     });
+  }, []);
+
+  const handlePragueDetailModeChange = useCallback((enabled: boolean) => {
+    setPragueDetailMode(enabled);
+    if (!enabled) {
+      setSelectedStationId((prevId) => {
+        if (!prevId) return null;
+        const st = STATIONS.find((s) => s.id === prevId);
+        return st?.isDetailOnly ? null : prevId;
+      });
+    }
   }, []);
 
   const handleFilterChange = useCallback((partial: Partial<FilterState>) => {
@@ -89,18 +115,39 @@ export function App() {
     );
   }, [filters, mode]);
 
-  // All eligible stations for this hub (excluding the hub itself)
+  // All eligible stations for this hub (excluding the hub itself and detail-only unless Prague detail mode is active)
   const eligibleStations = useMemo(() => {
-    return STATIONS.filter(
-      (station) => station.id !== activeHubId && !!station.connections[activeHubId]
-    );
-  }, [activeHubId]);
+    return STATIONS.filter((station) => {
+      if (station.id === activeHubId) return false;
+      if (!station.connections[activeHubId]) return false;
+      if (station.isDetailOnly && !(activeHubId === 'praha' && pragueDetailMode)) {
+        return false;
+      }
+      return true;
+    });
+  }, [activeHubId, pragueDetailMode]);
+
+  // Resolved connections map for Prague target station recalculation
+  const resolvedConnectionsMap = useMemo(() => {
+    const map = new Map<string, TrainConnection | ResolvedPragueConnection>();
+    eligibleStations.forEach((station) => {
+      const baseConn = station.connections[activeHubId];
+      if (!baseConn) return;
+      if (activeHubId === 'praha') {
+        map.set(station.id, resolvePragueConnection(station, baseConn, pragueTargetMode));
+      } else {
+        map.set(station.id, baseConn);
+      }
+    });
+    return map;
+  }, [eligibleStations, activeHubId, pragueTargetMode]);
 
   // Filtered and sorted stations
   const filteredStations = useMemo(() => {
     return eligibleStations
       .filter((station) => {
-        const connection = station.connections[activeHubId]!;
+        const connection = resolvedConnectionsMap.get(station.id);
+        if (!connection) return false;
 
         // 1. Travel time
         if (connection.durationMin > filters.maxDurationMin) return false;
@@ -132,8 +179,8 @@ export function App() {
         return true;
       })
       .sort((a, b) => {
-        const connA = a.connections[activeHubId]!;
-        const connB = b.connections[activeHubId]!;
+        const connA = resolvedConnectionsMap.get(a.id)!;
+        const connB = resolvedConnectionsMap.get(b.id)!;
         const metricsA = calculateStationMetrics(a, connA, currentHub, mode, apartmentSize);
         const metricsB = calculateStationMetrics(b, connB, currentHub, mode, apartmentSize);
 
@@ -154,7 +201,7 @@ export function App() {
             return 0;
         }
       });
-  }, [eligibleStations, activeHubId, currentHub, filters, mode, apartmentSize]);
+  }, [eligibleStations, resolvedConnectionsMap, currentHub, filters, mode, apartmentSize]);
 
   // Set of IDs that pass filters for map styling
   const filteredStationIds = useMemo(() => {
@@ -212,6 +259,11 @@ export function App() {
               hoveredStationId={hoveredStationId}
               onHoverStation={setHoveredStationId}
               onOpenCaseStudy={() => handleViewChange('case-study')}
+              pragueTargetMode={pragueTargetMode}
+              onPragueTargetModeChange={setPragueTargetMode}
+              pragueDetailMode={pragueDetailMode}
+              onPragueDetailModeChange={handlePragueDetailModeChange}
+              resolvedConnectionsMap={resolvedConnectionsMap}
             />
           </div>
 
@@ -232,6 +284,10 @@ export function App() {
               hoveredStationId={hoveredStationId}
               onHoverStation={setHoveredStationId}
               activeMobileTab={mobileTab}
+              pragueTargetMode={pragueTargetMode}
+              onPragueTargetModeChange={setPragueTargetMode}
+              pragueDetailMode={pragueDetailMode}
+              resolvedConnectionsMap={resolvedConnectionsMap}
             />
           </div>
         </main>

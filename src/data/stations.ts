@@ -1,4 +1,5 @@
 import { Station, TrainConnection } from '../types';
+import { PRAGUE_DETAIL_STATIONS } from './pragueDetailStations';
 
 function conn(
   terminus: string,
@@ -22,7 +23,7 @@ function conn(
   };
 }
 
-export const STATIONS: Station[] = [
+const BASE_STATIONS: Station[] = [
   // ==========================================
   // 4 MAJOR HUBS (Connected to each other)
   // ==========================================
@@ -949,3 +950,6 @@ export const STATIONS: Station[] = [
     },
   },
 ];
+
+export const STATIONS: Station[] = [...BASE_STATIONS, ...PRAGUE_DETAIL_STATIONS];
+

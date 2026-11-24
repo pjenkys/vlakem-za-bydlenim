@@ -33,6 +33,19 @@ export interface TrainConnection {
   carriers: string[];
 }
 
+export type PragueStationId =
+  | 'hln'
+  | 'masarykovo'
+  | 'smichov'
+  | 'podbaba'
+  | 'holesovice'
+  | 'liben'
+  | 'vysocany'
+  | 'vrsovice'
+  | 'veleslavin';
+
+export type PragueTargetMode = 'first' | PragueStationId;
+
 export interface Station {
   id: string;
   name: string;
@@ -41,6 +54,7 @@ export interface Station {
   buyPricePerSqm: number;
   rentPricePerSqm: number;
   connections: Partial<Record<HubId, TrainConnection>>;
+  isDetailOnly?: boolean;
 }
 
 export interface Listing {

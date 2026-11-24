@@ -13,7 +13,8 @@ import {
   ArrowRight,
   Building,
 } from 'lucide-react';
-import { Station, HubInfo, HousingMode, ApartmentSize } from '../types';
+import { Station, HubInfo, HousingMode, ApartmentSize, TrainConnection } from '../types';
+import { ResolvedPragueConnection } from '../utils/pragueRouting';
 import {
   calculateStationMetrics,
   formatCzechNumber,
@@ -28,6 +29,7 @@ interface StationDetailProps {
   apartmentSize: ApartmentSize;
   onBack: () => void;
   onOpenCaseStudy?: () => void;
+  resolvedConnection?: TrainConnection | ResolvedPragueConnection;
 }
 
 export const StationDetail: React.FC<StationDetailProps> = ({
@@ -37,8 +39,10 @@ export const StationDetail: React.FC<StationDetailProps> = ({
   apartmentSize,
   onBack,
   onOpenCaseStudy,
+  resolvedConnection,
 }) => {
-  const connection = station.connections[hub.id];
+  const connection = resolvedConnection ?? station.connections[hub.id];
+  const resolved = resolvedConnection as ResolvedPragueConnection | undefined;
 
   if (!connection) {
     return (
@@ -77,7 +81,16 @@ export const StationDetail: React.FC<StationDetailProps> = ({
                 <span className="text-xs font-semibold px-2 py-0.5 rounded bg-paper text-ink-muted border border-hairline">
                   {station.region}
                 </span>
-                {connection.isDirect ? (
+                {station.isDetailOnly && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-navy/5 text-navy border border-navy/20">
+                    Mezilehlá stanice (detailní mapa)
+                  </span>
+                )}
+                {resolved?.requiresPragueTransfer ? (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300">
+                    S přestupem v Praze (přes {resolved.viaStationName})
+                  </span>
+                ) : connection.isDirect ? (
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-price-tier1 border border-price-tier1/20">
                     Přímý spoj
                   </span>
@@ -159,6 +172,11 @@ export const StationDetail: React.FC<StationDetailProps> = ({
               Cílová stanice
             </span>
             <span className="font-semibold text-ink">{connection.terminus}</span>
+            {resolved?.requiresPragueTransfer && (
+              <span className="text-[10px] text-amber-800 block mt-0.5 font-medium leading-tight">
+                Přestup v Praze (přes {resolved.viaStationShortName})
+              </span>
+            )}
           </div>
 
           <div className="bg-paper/70 p-2.5 rounded-lg border border-hairline/80">

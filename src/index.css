@@ -88,3 +88,53 @@
     opacity: 0;
   }
 }
+
+/* Prague station markers on map */
+.prague-station-pin-container {
+  overflow: visible !important;
+}
+.prague-station-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+}
+.prague-station-pin-inner {
+  width: 18px;
+  height: 18px;
+  background-color: #2D4A77;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.prague-station-pin.active .prague-station-pin-inner {
+  width: 22px;
+  height: 22px;
+  background-color: #1B365D;
+  box-shadow: 0 0 0 3px rgba(27, 54, 93, 0.3), 0 3px 8px rgba(0, 0, 0, 0.35);
+}
+.prague-station-pin-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #1B365D;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(27, 54, 93, 0.25);
+  border-radius: 3px;
+  padding: 0 3px;
+  white-space: nowrap;
+  margin-top: 2px;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.prague-station-pin.active .prague-station-pin-label {
+  background: #1B365D;
+  color: #FFFFFF;
+  border-color: #1B365D;
+}
+

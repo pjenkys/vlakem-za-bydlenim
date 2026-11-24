@@ -15,7 +15,10 @@ import {
   FrequencyFilter,
   LastTrainFilter,
   SortOption,
+  PragueTargetMode,
+  TrainConnection,
 } from '../types';
+import { ResolvedPragueConnection } from '../utils/pragueRouting';
 import {
   calculateStationMetrics,
   formatCzechNumber,
@@ -39,6 +42,11 @@ interface SidebarProps {
   hoveredStationId: string | null;
   onHoverStation: (stationId: string | null) => void;
   onOpenCaseStudy?: () => void;
+  pragueTargetMode?: PragueTargetMode;
+  onPragueTargetModeChange?: (targetMode: PragueTargetMode) => void;
+  pragueDetailMode?: boolean;
+  onPragueDetailModeChange?: (enabled: boolean) => void;
+  resolvedConnectionsMap?: Map<string, TrainConnection | ResolvedPragueConnection>;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -56,6 +64,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   hoveredStationId,
   onHoverStation,
   onOpenCaseStudy,
+  pragueTargetMode = 'hln',
+  onPragueTargetModeChange,
+  pragueDetailMode = false,
+  onPragueDetailModeChange,
+  resolvedConnectionsMap,
 }) => {
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
@@ -76,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           apartmentSize={apartmentSize}
           onBack={() => onSelectStation(null)}
           onOpenCaseStudy={onOpenCaseStudy}
+          resolvedConnection={resolvedConnectionsMap?.get(selectedStation.id)}
         />
       </aside>
     );
@@ -90,6 +104,74 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="w-full md:w-[420px] lg:w-[440px] h-full flex flex-col bg-paper border-r border-hairline overflow-hidden z-20">
       {/* Filters Header Accordion */}
       <div className="bg-white border-b border-hairline p-4 space-y-3 shadow-xs">
+        {/* Prague-Exclusive Settings Bar */}
+        {activeHub.id === 'praha' && (
+          <div className="bg-navy/5 border border-navy/15 rounded-xl p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-navy uppercase tracking-wider flex items-center gap-1.5">
+                <Train className="w-3.5 h-3.5 text-navy" />
+                <span>Nastavení Prahy</span>
+              </span>
+              <span className="text-[10px] font-mono font-semibold text-navy/80 bg-white px-1.5 py-0.5 rounded border border-navy/10">
+                9 pražských nádraží
+              </span>
+            </div>
+
+            {/* Target Station Selector */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-ink block">
+                Cílová stanice v Praze:
+              </label>
+              <div className="relative">
+                <select
+                  value={pragueTargetMode}
+                  onChange={(e) => onPragueTargetModeChange?.(e.target.value as PragueTargetMode)}
+                  className="w-full bg-white border border-hairline text-ink font-semibold rounded-lg px-2.5 py-1.5 pr-8 text-xs appearance-none cursor-pointer hover:border-navy transition-colors focus:outline-none focus:ring-1 focus:ring-navy"
+                >
+                  <option value="first">⚡ První stanice v Praze (nejrychlejší vstup)</option>
+                  <option disabled>──────────</option>
+                  <option value="hln">Praha hl.n. (výchozí · Metro C)</option>
+                  <option value="masarykovo">Praha Masarykovo n. (Metro B)</option>
+                  <option value="smichov">Praha-Smíchov (Metro B · Anděl)</option>
+                  <option value="podbaba">Praha-Podbaba (Tram · Dejvice / P6)</option>
+                  <option value="holesovice">Praha-Holešovice (Metro C · P7)</option>
+                  <option value="liben">Praha-Libeň (Tram · Vysočany / Karlín)</option>
+                  <option value="vysocany">Praha-Vysočany (Metro B · P9)</option>
+                  <option value="vrsovice">Praha-Vršovice (Tram · P10 / Vinohrady)</option>
+                  <option value="veleslavin">Praha-Veleslavín (Metro A · Letiště)</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-ink-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+
+              {pragueTargetMode === 'first' && (
+                <p className="text-[10.5px] text-navy/90 font-medium leading-tight pt-0.5">
+                  ℹ️ Zobrazuje čas a název první pražské stanice na trase (např. Lovosice → Praha-Podbaba).
+                </p>
+              )}
+            </div>
+
+            {/* Detailed Map Toggle */}
+            <div className="pt-2 border-t border-navy/10 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-ink block">Detailní mapa (+32 mezilehlých stanic)</span>
+                <span className="text-[10.5px] text-ink-muted block">
+                  Zobrazí i menší koridorové stanice (Bohušovice, Pečky, Čerčany…)
+                </span>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer ml-2">
+                <input
+                  type="checkbox"
+                  checked={pragueDetailMode}
+                  onChange={(e) => onPragueDetailModeChange?.(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-hairline peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-hairline after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-navy"></div>
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <button
             onClick={() => setFiltersCollapsed(!filtersCollapsed)}
@@ -293,7 +375,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ) : (
           stations.map((station) => {
-            const connection = station.connections[activeHub.id]!;
+            const connection = resolvedConnectionsMap?.get(station.id) ?? station.connections[activeHub.id]!;
+            const resolved = resolvedConnectionsMap?.get(station.id) as ResolvedPragueConnection | undefined;
             const metrics = calculateStationMetrics(
               station,
               connection,
@@ -351,14 +434,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* Train details & timetable monospace strip */}
-                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-hairline/80">
-                  <div className="flex items-center gap-1 font-mono font-bold text-navy">
-                    <Train className="w-3.5 h-3.5" />
+                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-hairline/80 gap-2">
+                  <div className="flex items-center gap-1.5 font-mono font-bold text-navy flex-wrap">
+                    <Train className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>{connection.durationMin} min</span>
+                    {activeHub.id === 'praha' && (
+                      <span className="text-[10px] font-sans font-medium text-navy/80 bg-navy/5 px-1.5 py-0.2 rounded border border-navy/15">
+                        → {resolved?.targetStationShortName || connection.terminus}
+                      </span>
+                    )}
+                    {resolved?.requiresPragueTransfer && (
+                      <span className="text-[9.5px] font-sans font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-900 border border-amber-200">
+                        Přestup v Praze
+                      </span>
+                    )}
                   </div>
 
-                  <div className="font-mono text-[10px] text-ink-muted">
-                    {connection.peakTrainsPerHour}×/hod · {connection.firstTrainToHub}–{connection.lastTrainFromHub} · {connection.isDirect ? 'Přímý' : 'Přestup'}
+                  <div className="font-mono text-[10px] text-ink-muted flex-shrink-0 text-right">
+                    {connection.peakTrainsPerHour}×/hod · {connection.isDirect ? 'Přímý' : 'Přestup'}
                   </div>
                 </div>
               </div>

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Maximize2, Crosshair } from 'lucide-react';
-import { Station, HubInfo, HousingMode, ApartmentSize } from '../types';
+import { Station, HubInfo, HousingMode, ApartmentSize, PragueTargetMode, PragueStationId, TrainConnection } from '../types';
 import { getPriceColor, formatCzechNumber, PRICE_TIERS } from '../utils/calculations';
+import { PRAGUE_STATIONS, PRAGUE_STATION_IDS } from '../data/pragueStations';
+import { isResolvedPragueConnection, ResolvedPragueConnection } from '../utils/pragueRouting';
 
 interface StationMapProps {
   stations: Station[];
@@ -15,6 +17,10 @@ interface StationMapProps {
   hoveredStationId: string | null;
   onHoverStation: (stationId: string | null) => void;
   activeMobileTab?: 'list' | 'map';
+  pragueTargetMode?: PragueTargetMode;
+  onPragueTargetModeChange?: (mode: PragueTargetMode) => void;
+  pragueDetailMode?: boolean;
+  resolvedConnectionsMap?: Map<string, TrainConnection | ResolvedPragueConnection>;
 }
 
 export const StationMap: React.FC<StationMapProps> = ({
@@ -28,6 +34,10 @@ export const StationMap: React.FC<StationMapProps> = ({
   hoveredStationId,
   onHoverStation,
   activeMobileTab,
+  pragueTargetMode = 'hln',
+  onPragueTargetModeChange,
+  pragueDetailMode = false,
+  resolvedConnectionsMap,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -36,6 +46,7 @@ export const StationMap: React.FC<StationMapProps> = ({
   const halosLayerRef = useRef<L.LayerGroup | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const corridorsLayerRef = useRef<L.LayerGroup | null>(null);
+  const pragueStationsLayerRef = useRef<L.LayerGroup | null>(null);
   const hubLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Keep references to marker instances to manage hover and tooltips cleanly
@@ -67,15 +78,17 @@ export const StationMap: React.FC<StationMapProps> = ({
       }
     ).addTo(map);
 
-    // Create LayerGroups in order: corridors at bottom, halos in middle, markers on top, hub pin on top
+    // Create LayerGroups in order: corridors at bottom, halos in middle, markers on top, prague stations, hub pin on top
     const corridorsLayer = L.layerGroup().addTo(map);
     const halosLayer = L.layerGroup().addTo(map);
     const markersLayer = L.layerGroup().addTo(map);
+    const pragueStationsLayer = L.layerGroup().addTo(map);
     const hubLayer = L.layerGroup().addTo(map);
 
     corridorsLayerRef.current = corridorsLayer;
     halosLayerRef.current = halosLayer;
     markersLayerRef.current = markersLayer;
+    pragueStationsLayerRef.current = pragueStationsLayer;
     hubLayerRef.current = hubLayer;
     mapRef.current = map;
 
@@ -104,10 +117,29 @@ export const StationMap: React.FC<StationMapProps> = ({
     }
   }, [activeHub.id]);
 
-  // 3. Render Hub reference pin
+  // 2b. Fly to Central Bohemian commuter network when Prague Detailed Mode is toggled
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (activeHub.id === 'praha' && pragueDetailMode) {
+      mapRef.current.flyToBounds(
+        [
+          [49.68, 13.70],
+          [50.56, 15.35],
+        ],
+        { padding: [30, 30], duration: 1.0 }
+      );
+    }
+  }, [pragueDetailMode, activeHub.id]);
+
+  // 3. Render Hub reference pin (used for non-Prague hubs)
   useEffect(() => {
     if (!hubLayerRef.current) return;
     hubLayerRef.current.clearLayers();
+
+    if (activeHub.id === 'praha') {
+      // Prague stations layer handles Prague hub markers
+      return;
+    }
 
     // Custom pure HTML/SVG divIcon for Hub
     const hubIcon = L.divIcon({
@@ -148,6 +180,74 @@ export const StationMap: React.FC<StationMapProps> = ({
     hubLayerRef.current.addLayer(hubMarker);
   }, [activeHub]);
 
+  // 3b. Render Prague station markers
+  useEffect(() => {
+    if (!pragueStationsLayerRef.current) return;
+    pragueStationsLayerRef.current.clearLayers();
+
+    if (activeHub.id !== 'praha') return;
+
+    let stationIdsToRender: PragueStationId[] = [];
+    if (pragueDetailMode) {
+      stationIdsToRender = PRAGUE_STATION_IDS;
+    } else if (pragueTargetMode === 'first') {
+      stationIdsToRender = ['podbaba', 'smichov', 'liben', 'vysocany', 'vrsovice', 'veleslavin'];
+    } else {
+      stationIdsToRender = [pragueTargetMode as PragueStationId];
+    }
+
+    stationIdsToRender.forEach((stId) => {
+      const st = PRAGUE_STATIONS[stId];
+      if (!st) return;
+
+      const isActive = pragueTargetMode === stId;
+      const iconHtml = `
+        <div class="prague-station-pin ${isActive ? 'active' : ''}">
+          <div class="prague-station-pin-inner">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="16" height="16" x="4" y="3" rx="2"/>
+              <path d="M4 11h16"/>
+              <path d="M12 3v8"/>
+              <circle cx="8" cy="15" r="1"/>
+              <circle cx="16" cy="15" r="1"/>
+            </svg>
+          </div>
+          <span class="prague-station-pin-label">${st.shortName}</span>
+        </div>
+      `;
+
+      const icon = L.divIcon({
+        className: 'prague-station-pin-container',
+        html: iconHtml,
+        iconSize: [40, 36],
+        iconAnchor: [20, 10],
+      });
+
+      const marker = L.marker(st.coords, {
+        icon,
+        interactive: true,
+        zIndexOffset: isActive ? 1200 : 800,
+      });
+
+      marker.bindTooltip(
+        `<div class="font-bold text-navy">${st.name}</div><div class="text-[11px] text-ink-muted">${st.mhdNote}</div><div class="text-[10px] text-emerald-700 font-semibold mt-0.5">${
+          isActive ? '✓ Zvolená cílová stanice' : 'Kliknutím vybrat jako cíl'
+        }</div>`,
+        {
+          direction: 'top',
+          className: 'editorial-tooltip',
+          offset: [0, -12],
+        }
+      );
+
+      marker.on('click', () => {
+        onPragueTargetModeChange?.(stId);
+      });
+
+      pragueStationsLayerRef.current?.addLayer(marker);
+    });
+  }, [activeHub.id, pragueDetailMode, pragueTargetMode, onPragueTargetModeChange]);
+
   // 4. Render Halos and Station Markers
   useEffect(() => {
     if (!halosLayerRef.current || !markersLayerRef.current) return;
@@ -156,9 +256,18 @@ export const StationMap: React.FC<StationMapProps> = ({
     markersLayerRef.current.clearLayers();
     stationMarkersRef.current.clear();
 
+    const isDetailPrague = activeHub.id === 'praha' && pragueDetailMode;
+    const haloRadius = isDetailPrague ? 1700 : 3500;
+    const filteredHaloRadius = isDetailPrague ? 1400 : 3000;
+    const dotRadiusBase = isDetailPrague ? 5.5 : 7;
+    const dotRadiusActive = isDetailPrague ? 7.5 : 9;
+
     stations.forEach((station) => {
       // Exclude hub itself from station dots
       if (station.id === activeHub.id) return;
+
+      // In normal mode, do not render detail-only stations
+      if (station.isDetailOnly && !isDetailPrague) return;
 
       const connection = station.connections[activeHub.id];
       const isConnected = !!connection;
@@ -170,10 +279,10 @@ export const StationMap: React.FC<StationMapProps> = ({
       const priceColor = getPriceColor(pricePerSqm, mode);
 
       if (isConnected) {
-        // A) Halo Layer (L.circle with radius 3500m, interactive: false)
+        // A) Halo Layer (L.circle with radius 1700m or 3500m, interactive: false)
         if (passesFilter) {
           const halo = L.circle(station.coords, {
-            radius: 3500,
+            radius: haloRadius,
             fillColor: priceColor,
             fillOpacity: isSelected || isHovered ? 0.38 : 0.22,
             stroke: true,
@@ -186,7 +295,7 @@ export const StationMap: React.FC<StationMapProps> = ({
         } else {
           // Filtered out halo (faint gray)
           const halo = L.circle(station.coords, {
-            radius: 3000,
+            radius: filteredHaloRadius,
             fillColor: '#9CA3AF',
             fillOpacity: 0.08,
             stroke: false,
@@ -196,7 +305,7 @@ export const StationMap: React.FC<StationMapProps> = ({
         }
 
         // B) Crisp Station Dot (L.circleMarker, interactive: true)
-        const dotRadius = isSelected || isHovered ? 9 : 7;
+        const dotRadius = isSelected || isHovered ? dotRadiusActive : dotRadiusBase;
         const dotColor = passesFilter ? priceColor : '#9CA3AF';
         const dotOpacity = passesFilter ? 1.0 : 0.35;
 
@@ -214,12 +323,23 @@ export const StationMap: React.FC<StationMapProps> = ({
         }
 
         // Tooltip
+        const rawResolved = activeHub.id === 'praha' ? resolvedConnectionsMap?.get(station.id) : undefined;
+        const resolved = isResolvedPragueConnection(rawResolved) ? rawResolved : undefined;
+        const durationMin = resolved ? resolved.durationMin : connection.durationMin;
+        const targetLabel = resolved
+          ? `→ ${resolved.targetStationName}`
+          : activeHub.toLabel;
+        const transferBadge = resolved && resolved.requiresPragueTransfer
+          ? `<div class="text-[10px] text-amber-700 bg-amber-50 px-1 py-0.5 rounded font-sans mt-0.5 font-medium">S přestupem v Praze (${resolved.viaStationName ? 'přes ' + resolved.viaStationName : ''})</div>`
+          : '';
+
         const tooltipContent = `
           <div class="space-y-0.5">
             <div class="font-bold text-ink">${station.name}</div>
             <div class="text-[11px] font-mono text-navy font-bold">
-              🚂 ${connection.durationMin} min ${activeHub.toLabel}
+              🚂 ${durationMin} min ${targetLabel}
             </div>
+            ${transferBadge}
             <div class="text-[11px] font-mono text-ink-muted">
               ${formatCzechNumber(pricePerSqm)} Kč/m² ${passesFilter ? '' : '<span class="text-rose-600 font-sans">(mimo filtry)</span>'}
             </div>
@@ -277,6 +397,9 @@ export const StationMap: React.FC<StationMapProps> = ({
     mode,
     selectedStationId,
     hoveredStationId,
+    pragueDetailMode,
+    pragueTargetMode,
+    resolvedConnectionsMap,
   ]);
 
   // 5. Draw Corridor line to Hub when station is hovered or selected
@@ -290,8 +413,29 @@ export const StationMap: React.FC<StationMapProps> = ({
     const station = stations.find((s) => s.id === activeStationId);
     if (!station || !station.connections[activeHub.id]) return;
 
+    let targetCoords = activeHub.coords;
+    const rawResolved = activeHub.id === 'praha' ? resolvedConnectionsMap?.get(station.id) : undefined;
+    const resolved = isResolvedPragueConnection(rawResolved) ? rawResolved : undefined;
+
+    if (resolved && resolved.targetStationId) {
+      targetCoords = PRAGUE_STATIONS[resolved.targetStationId]?.coords || activeHub.coords;
+    }
+
+    let polylineCoords: [number, number][] = [station.coords, targetCoords];
+    if (
+      resolved &&
+      resolved.requiresPragueTransfer &&
+      resolved.viaStationId &&
+      resolved.viaStationId !== resolved.targetStationId
+    ) {
+      const viaCoords = PRAGUE_STATIONS[resolved.viaStationId]?.coords;
+      if (viaCoords) {
+        polylineCoords = [station.coords, viaCoords, targetCoords];
+      }
+    }
+
     // Draw crisp corridor polyline
-    const line = L.polyline([station.coords, activeHub.coords], {
+    const line = L.polyline(polylineCoords, {
       color: '#1B365D',
       weight: 2.5,
       dashArray: '5, 5',
@@ -300,7 +444,7 @@ export const StationMap: React.FC<StationMapProps> = ({
     });
 
     corridorsLayerRef.current.addLayer(line);
-  }, [hoveredStationId, selectedStationId, stations, activeHub]);
+  }, [hoveredStationId, selectedStationId, stations, activeHub, resolvedConnectionsMap]);
 
   // Helper: Zoom to fit entire Czech Republic
   const fitCzechRepublic = () => {
@@ -313,6 +457,17 @@ export const StationMap: React.FC<StationMapProps> = ({
   // Helper: Zoom to active hub and its connected commuter catchment
   const fitActiveHubArea = () => {
     if (!mapRef.current) return;
+    if (activeHub.id === 'praha' && pragueDetailMode) {
+      mapRef.current.flyToBounds(
+        [
+          [49.68, 13.70],
+          [50.56, 15.35],
+        ],
+        { padding: [30, 30], duration: 1.0 }
+      );
+      return;
+    }
+
     const connectedCoords = stations
       .filter((s) => s.connections[activeHub.id])
       .map((s) => s.coords);
@@ -380,7 +535,9 @@ export const StationMap: React.FC<StationMapProps> = ({
         </div>
 
         <div className="mt-2.5 pt-2 border-t border-hairline text-[10px] text-ink-muted leading-tight">
-          Kruhový halo znázorňuje cenový perimetr do 3,5 km od železniční stanice.
+          {activeHub.id === 'praha' && pragueDetailMode
+            ? 'Kruhový halo znázorňuje cenový perimetr do 1,7 km v detailním režimu.'
+            : 'Kruhový halo znázorňuje cenový perimetr do 3,5 km od železniční stanice.'}
         </div>
       </div>
     </div>
