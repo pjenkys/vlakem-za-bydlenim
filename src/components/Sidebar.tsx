@@ -455,7 +455,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
 
                   <div className="font-mono text-[10px] text-ink-muted flex-shrink-0 text-right">
-                    {connection.peakTrainsPerHour}×/hod · {connection.isDirect ? 'Přímý' : 'Přestup'}
+                    <span>{connection.peakTrainsPerHour}×/hod</span>
+                    <span className="mx-1">·</span>
+                    <span title={`Poslední noční vlak ${activeHub.fromLabel}`}>posl. {connection.lastTrainFromHub}</span>
+                    <span className="mx-1">·</span>
+                    <span>{connection.isDirect ? 'Přímý' : 'Přestup'}</span>
                   </div>
                 </div>
               </div>

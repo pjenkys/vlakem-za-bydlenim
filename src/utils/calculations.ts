@@ -67,7 +67,8 @@ export function getPriceColor(pricePerSqm: number, mode: HousingMode): string {
  * Post-midnight times (00:00 - 03:59) are mapped to 24:00 - 27:59 (1440 - 1679 minutes)
  * so that a return train at 00:15 is recognized as departing after 23:00.
  */
-export function parseTrainTimeInMinutes(timeStr: string): number {
+export function parseTrainTimeInMinutes(timeStr?: string): number {
+  if (!timeStr) return 0;
   const [hStr, mStr] = timeStr.trim().split(':');
   let hours = parseInt(hStr, 10);
   const minutes = parseInt(mStr, 10) || 0;
