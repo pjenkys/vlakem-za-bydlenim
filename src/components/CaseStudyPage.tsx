@@ -155,22 +155,66 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     return calculateMortgageTaxRefundMonthly(mortgage.interestPaidYear4, ownerOccupiedRatio);
   }, [mortgage.interestPaidYear4, ownerOccupiedRatio]);
 
-  // 5. Room Rental Net Income (§ 9 ZDP with non-taxable utility deposit)
-  const roommateUtilityDeposit = 1500;
-  const taxablePureRent = Math.max(0, roomRentAmount - roommateUtilityDeposit);
+  // 5. Shared Operating Expenses & Roommate Utility Share (50/50 split of consumable services)
+  // Shared items: dálkové vytápění & TUV, vodné a stočné, elektřina byt, plyn, služby SVJ (úklid, osvětlení, správa), pojištění, internet & koncese.
+  // Owner-only items: fond oprav SVJ (1 400 Kč), daň z nemovitosti (120 Kč), rezerva na údržbu (500 Kč) hradí 100 % majitel.
+  const sharedOperatingExpenses = useMemo(() => {
+    return (
+      heatingAndHotWater +
+      waterAndSewer +
+      electricity +
+      gas +
+      hoaServicesAndAdmin +
+      insurance +
+      internetAndFees
+    );
+  }, [
+    heatingAndHotWater,
+    waterAndSewer,
+    electricity,
+    gas,
+    hoaServicesAndAdmin,
+    insurance,
+    internetAndFees,
+  ]);
 
+  // Podíl spolubydlícího na energiích a provozu (přesně 50 % ze sdílených položek)
+  const roommateUtilitiesShare = useMemo(() => {
+    return rentOutRoom ? Math.round(sharedOperatingExpenses / 2) : 0;
+  }, [rentOutRoom, sharedOperatingExpenses]);
+
+  // Teoretický podíl spolubydlícího na energiích pro zobrazení, i když je pokoj vypnutý
+  const simRoommateUtilitiesShare = useMemo(() => {
+    return Math.round(sharedOperatingExpenses / 2);
+  }, [sharedOperatingExpenses]);
+
+  // 6. Room Rental Net Income (§ 9 ZDP: zdanění výhradně holého nájmu, energie se nedaní)
+  const roomPureRent = roomRentAmount; // Default 6 000 Kč / měs.
+
+  // § 9 ZDP: 30% výdajový paušál, 15% daň z příjmu ze 70 % zdanitelného holého nájmu
   const roomRentTaxMonthly = useMemo(() => {
     if (!rentOutRoom || !deductRoomRentTax) return 0;
-    // § 9 ZDP: 30% flat expense allowance, 15% income tax on 70% of taxable pure rent
-    return Math.round(taxablePureRent * 0.70 * 0.15);
-  }, [rentOutRoom, deductRoomRentTax, taxablePureRent]);
+    return Math.round(roomPureRent * 0.70 * 0.15); // e.g. 6 000 * 0.70 * 0.15 = 630 Kč / měs.
+  }, [rentOutRoom, deductRoomRentTax, roomPureRent]);
 
+  // Čistý holý nájem po zdanění
+  const roomPureRentNet = useMemo(() => {
+    return roomPureRent - roomRentTaxMonthly; // e.g. 6 000 - 630 = 5 370 Kč / měs.
+  }, [roomPureRent, roomRentTaxMonthly]);
+
+  // Celková platba spolubydlícího majiteli (holý nájem + 50 % energií a provozu)
+  const roommateTotalPayment = useMemo(() => {
+    if (!rentOutRoom) return 0;
+    return roomPureRent + roommateUtilitiesShare; // e.g. 6 000 + 2 725 = 8 725 Kč / měs.
+  }, [rentOutRoom, roomPureRent, roommateUtilitiesShare]);
+
+  // Čistý měsíční přínos do rozpočtu majitele (čistý nájem po dani + polovina energií)
   const roomRentNet = useMemo(() => {
     if (!rentOutRoom) return 0;
-    return roomRentAmount - roomRentTaxMonthly;
-  }, [rentOutRoom, roomRentAmount, roomRentTaxMonthly]);
+    return roomPureRentNet + roommateUtilitiesShare; // e.g. 5 370 + 2 725 = 8 095 Kč / měs.
+  }, [rentOutRoom, roomPureRentNet, roommateUtilitiesShare]);
 
-  // 6. Monthly Expenses Summary
+  // 7. Monthly Expenses Summary
   const monthlyExpenses: MonthlyExpensesBreakdown = useMemo(() => {
     const total =
       mortgage.monthlyPayment +
@@ -216,17 +260,28 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     commute.effectiveMonthlyCost,
   ]);
 
-  // 7. Monthly Incomes Summary
+  // 8. Monthly Incomes Summary
   const monthlyIncomes: MonthlyIncomeBreakdown = useMemo(() => {
     const total = taxRefund.monthlyRefund + roomRentNet;
     return {
       mortgageTaxRefundMonthly: taxRefund.monthlyRefund,
-      roomRentGross: rentOutRoom ? roomRentAmount : 0,
+      roomRentGross: rentOutRoom ? roommateTotalPayment : 0,
       roomRentTaxMonthly,
       roomRentNet,
+      roomPureRent,
+      roommateUtilitiesShare,
+      roommateTotalPayment,
       totalIncomeAndOffsets: total,
     };
-  }, [taxRefund.monthlyRefund, rentOutRoom, roomRentAmount, roomRentTaxMonthly, roomRentNet]);
+  }, [
+    taxRefund.monthlyRefund,
+    rentOutRoom,
+    roommateTotalPayment,
+    roomRentTaxMonthly,
+    roomRentNet,
+    roomPureRent,
+    roommateUtilitiesShare,
+  ]);
 
   // Net monthly out-of-pocket cost
   const netMonthlyCost = useMemo(() => {
@@ -244,10 +299,16 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
       mortgage.interestPaidYear1,
       deductRoomRentTax ? 0.70 : 1.0
     );
-    const taxMonthly = deductRoomRentTax ? Math.round(Math.max(0, roomRentAmount - 1500) * 0.70 * 0.15) : 0;
-    const netRent = roomRentAmount - taxMonthly;
-    return monthlyExpenses.totalGrossExpenses - (taxWithRoom.monthlyRefund + netRent);
-  }, [mortgage.interestPaidYear1, deductRoomRentTax, roomRentAmount, monthlyExpenses.totalGrossExpenses]);
+    const taxMonthly = deductRoomRentTax ? Math.round(roomRentAmount * 0.70 * 0.15) : 0;
+    const simNetRent = (roomRentAmount - taxMonthly) + simRoommateUtilitiesShare;
+    return monthlyExpenses.totalGrossExpenses - (taxWithRoom.monthlyRefund + simNetRent);
+  }, [
+    mortgage.interestPaidYear1,
+    deductRoomRentTax,
+    roomRentAmount,
+    simRoommateUtilitiesShare,
+    monthlyExpenses.totalGrossExpenses,
+  ]);
 
   // 8. Direct Prague Comparison (Buy vs Rent vs Lovosice)
   const pragueComparison = useMemo(() => {
@@ -521,7 +582,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                       </span>
                       {rentOutRoom && (
                         <span className="text-[10px] font-mono font-bold text-price-tier1 bg-white px-2 py-0.5 rounded border border-price-tier1/20">
-                          +{formatCzechNumber(roomRentAmount)} Kč / měs.
+                          +{formatCzechNumber(roomRentAmount)} Kč holý nájem + energie
                         </span>
                       )}
                     </div>
@@ -534,7 +595,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         </div>
                         <p className="text-[11px] text-ink-muted leading-relaxed">
                           Byt má 2 samostatné neprůchozí pokoje a oddělenou kuchyň. Kamarád získá férové bydlení 3 minuty od vlaku za{' '}
-                          <strong className="text-ink">{formatCzechNumber(roomRentAmount)} Kč/měs.</strong> a vám klesne čistý výdaj z kapsy na pouhých{' '}
+                          <strong className="text-ink">
+                            holý nájem {formatCzechNumber(roomRentAmount)} Kč + energie a služby napůl ({formatCzechNumber(roommateUtilitiesShare)} Kč, celkem {formatCzechNumber(roommateTotalPayment)} Kč/měs. all-inclusive)
+                          </strong>{' '}
+                          a vám klesne čistý výdaj z kapsy na pouhých{' '}
                           <strong className="text-price-tier1 font-mono">{formatCzechNumber(netMonthlyCost)} Kč/měs.</strong>
                         </p>
                       </div>
@@ -543,7 +607,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         <p className="text-[11px] text-ink-muted leading-relaxed">
                           Bydlíte v celém 2+1 sami (čistý náklad <strong className="text-ink">{formatCzechNumber(netCostAlone)} Kč/měs.</strong>, 100% daňový odpočet).{' '}
                           <span className="text-navy font-semibold">
-                            Zaškrtnutím zapojíte spolubydlícího a také to vyřeší bytovou situaci hned 2 lidem :)
+                            Zaškrtnutím zapojíte spolubydlícího (holý nájem {formatCzechNumber(roomRentAmount)} Kč + energie napůl) a také to vyřeší bytovou situaci hned 2 lidem :)
                           </span>
                         </p>
                       </div>
@@ -692,11 +756,11 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   </div>
                   {rentOutRoom ? (
                     <div className="text-[10.5px] text-emerald-800 bg-white/75 p-1.5 rounded border border-price-tier1/20 font-medium leading-tight">
-                      Včetně pronájmu 1 pokoje kamarádovi (řeší bydlení 2 lidem najednou · bez spolubydlícího: <strong>{formatCzechNumber(netCostAlone)} Kč/měs.</strong> — stále o <strong>{formatCzechNumber(pragueComparison.pragueTotalRentMonthly - netCostAlone)} Kč</strong> levnější než nájem v Praze!)
+                      Včetně pronájmu 1 pokoje kamarádovi (holý nájem {formatCzechNumber(roomRentAmount)} Kč + energie napůl · řeší bydlení 2 lidem najednou · bez spolubydlícího: <strong>{formatCzechNumber(netCostAlone)} Kč/měs.</strong> — stále o <strong>{formatCzechNumber(pragueComparison.pragueTotalRentMonthly - netCostAlone)} Kč</strong> levnější než nájem v Praze!)
                     </div>
                   ) : (
                     <div className="text-[10.5px] text-navy bg-white/75 p-1.5 rounded border border-navy/20 font-medium leading-tight">
-                      Bydlíte v celém 2+1 sami. Pokud pokoj pronajmete kamarádovi, náklad klesne na <strong>{formatCzechNumber(netCostWithRoommate)} Kč/měs.</strong> a vyřešíte bytovou situaci hned 2 lidem :)
+                      Bydlíte v celém 2+1 sami. Pokud pokoj pronajmete kamarádovi (holý nájem {formatCzechNumber(roomRentAmount)} Kč + energie napůl), náklad klesne na <strong>{formatCzechNumber(netCostWithRoommate)} Kč/měs.</strong> a vyřešíte bytovou situaci hned 2 lidem :)
                     </div>
                   )}
                 </div>
@@ -1116,7 +1180,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   {expensesCollapsed ? (
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">2. Fond oprav SVJ:</span>
+                        <span className="text-ink">2. Fond oprav SVJ (majitel):</span>
                         <input
                           type="number"
                           step={50}
@@ -1126,7 +1190,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">3. Dálkové teplo & TUV:</span>
+                        <span className="text-ink">3. Dálkové teplo (50/50):</span>
                         <input
                           type="number"
                           step={100}
@@ -1136,7 +1200,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">4. Vodné a stočné:</span>
+                        <span className="text-ink">4. Vodné a stočné (50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1146,7 +1210,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">5. Elektřina byt:</span>
+                        <span className="text-ink">5. Elektřina byt (50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1156,7 +1220,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">6. Plyn (vaření):</span>
+                        <span className="text-ink">6. Plyn (50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1166,7 +1230,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">7. Služby SVJ & správa:</span>
+                        <span className="text-ink">7. Služby SVJ (úklid, správa – 50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1176,7 +1240,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">8. Pojištění nemovitosti:</span>
+                        <span className="text-ink">8. Pojištění (50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1186,7 +1250,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">9. Internet & koncese:</span>
+                        <span className="text-ink">9. Internet & koncese (50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1196,7 +1260,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">10. Daň z nemovitostí:</span>
+                        <span className="text-ink">10. Daň z nemovitostí (majitel):</span>
                         <input
                           type="number"
                           step={10}
@@ -1209,39 +1273,39 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   ) : (
                     <>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">2. Fond oprav SVJ (z inzerátu):</span>
+                        <span className="font-semibold text-ink">2. Fond oprav SVJ (100 % hradí majitel):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(hoaRepairFund)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">3. Dálkové teplo a ohřev TUV:</span>
+                        <span className="font-semibold text-ink">3. Dálkové teplo a ohřev TUV (dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(heatingAndHotWater)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">4. Vodné a stočné:</span>
+                        <span className="font-semibold text-ink">4. Vodné a stočné (dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(waterAndSewer)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">5. Elektřina byt:</span>
+                        <span className="font-semibold text-ink">5. Elektřina byt (dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(electricity)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">6. Plyn (vaření):</span>
+                        <span className="font-semibold text-ink">6. Plyn (vaření – dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(gas)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">7. Služby SVJ & správa domu:</span>
+                        <span className="font-semibold text-ink">7. Služby SVJ & správa (úklid, osvětlení – 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(hoaServicesAndAdmin)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">8. Pojištění nemovitosti & domácnosti:</span>
+                        <span className="font-semibold text-ink">8. Pojištění nemovitosti & domácnosti (dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(insurance)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">9. Internet + TV/rozhlas poplatky:</span>
+                        <span className="font-semibold text-ink">9. Internet + TV/rozhlas poplatky (dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(internetAndFees)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">10. Daň z nemovitých věcí (rozpočet):</span>
+                        <span className="font-semibold text-ink">10. Daň z nemovitých věcí (100 % hradí majitel):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(propertyTaxMonthly)} Kč</span>
                       </div>
                     </>
@@ -1255,7 +1319,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         onChange={(e) => setIncludeMaintenanceReserve(e.target.checked)}
                         className="accent-navy"
                       />
-                      <span>11. Rezerva na údržbu bytu:</span>
+                      <span>11. Rezerva na údržbu bytu (100 % hradí majitel):</span>
                     </label>
                     <span className="font-mono font-medium">{formatCzechNumber(maintenanceReserveAmount)} Kč</span>
                   </div>
@@ -1337,7 +1401,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                     <div className="space-y-3 pt-2 border-t border-hairline">
                       <div className="space-y-1">
                         <div className="flex justify-between items-center text-xs">
-                          <span className="font-semibold text-ink">Nájemné včetně podílu na energiích:</span>
+                          <span className="font-semibold text-ink">Čistý holý nájem za pokoj (bez energií):</span>
                           <span className="font-mono font-bold text-price-tier1 text-sm">
                             {formatCzechNumber(roomRentAmount)} Kč / měs.
                           </span>
@@ -1345,7 +1409,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         <input
                           type="range"
                           min={4000}
-                          max={8500}
+                          max={9000}
                           step={250}
                           value={roomRentAmount}
                           onChange={(e) => setRoomRentAmount(Number(e.target.value))}
@@ -1354,7 +1418,27 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         <div className="flex justify-between text-[10px] text-ink-muted font-mono">
                           <span>4 000 Kč</span>
                           <span>6 000 Kč (standard Lovosice)</span>
-                          <span>8 500 Kč</span>
+                          <span>9 000 Kč</span>
+                        </div>
+                      </div>
+
+                      {/* Itemized Roommate Split Breakdown */}
+                      <div className="p-3 bg-paper/70 rounded-lg border border-hairline space-y-1.5 text-xs font-mono">
+                        <div className="flex justify-between text-ink">
+                          <span className="font-sans text-ink-muted">1. Holý nájem za pokoj (zdanitelný):</span>
+                          <span className="font-bold">{formatCzechNumber(roomRentAmount)} Kč / měs.</span>
+                        </div>
+                        <div className="flex justify-between text-ink">
+                          <span className="font-sans text-ink-muted">2. Podíl na energiích & službách (50 %):</span>
+                          <span className="font-bold text-navy">+{formatCzechNumber(roommateUtilitiesShare)} Kč / měs.</span>
+                        </div>
+                        <div className="text-[10px] font-sans text-ink-muted leading-relaxed pl-2 border-l-2 border-navy/40">
+                          Polovina tepla, vody, elektřiny, úklidu domu, osvětlení chodeb, správy SVJ, pojištění a internetu (50 % z celkových {formatCzechNumber(sharedOperatingExpenses)} Kč).
+                          Fond oprav ({formatCzechNumber(hoaRepairFund)} Kč), daň z nemovitosti a rezerva jdou 100 % za majitelem.
+                        </div>
+                        <div className="pt-1.5 border-t border-hairline flex justify-between font-bold text-ink text-xs">
+                          <span className="font-sans">Celková platba spolubydlícího (vše včetně energií):</span>
+                          <span className="text-navy">{formatCzechNumber(roommateTotalPayment)} Kč / měs.</span>
                         </div>
                       </div>
 
@@ -1377,16 +1461,21 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         </div>
                         {deductRoomRentTax && (
                           <span className="text-[10px] text-ink-muted block font-mono pl-5">
-                            (z holého nájmu {formatCzechNumber(taxablePureRent)} Kč, zálohy na energie 1 500 Kč se nedaní)
+                            (zdaňuje se výhradně holý nájem {formatCzechNumber(roomPureRent)} Kč: 70 % základ = {formatCzechNumber(Math.round(roomPureRent * 0.70))} Kč, daň 15 % = {formatCzechNumber(roomRentTaxMonthly)} Kč; podíl na energiích {formatCzechNumber(roommateUtilitiesShare)} Kč se nedaní)
                           </span>
                         )}
                       </div>
 
-                      <div className="p-2.5 rounded-lg bg-emerald-50 text-xs font-semibold text-price-tier1 flex justify-between">
-                        <span>Čistý měsíční příjem z pokoje:</span>
-                        <span className="font-mono font-bold">
-                          +{formatCzechNumber(roomRentNet)} Kč / měs.
-                        </span>
+                      <div className="p-2.5 rounded-lg bg-emerald-50 text-xs font-semibold text-price-tier1 space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span>Čistý měsíční přínos z pokoje do rozpočtu majitele:</span>
+                          <span className="font-mono font-bold text-sm">
+                            +{formatCzechNumber(roomRentNet)} Kč / měs.
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-emerald-800/80 font-normal flex justify-between font-mono">
+                          <span>(čistý holý nájem po dani {formatCzechNumber(roomPureRentNet)} Kč + úhrada energií {formatCzechNumber(roommateUtilitiesShare)} Kč)</span>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -1397,14 +1486,14 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                       </div>
                       <p className="text-[11px] text-ink-muted leading-relaxed">
                         Veškeré náklady na byt hradíte sami (čistý náklad <strong>{formatCzechNumber(netCostAlone)} Kč/měs.</strong>).
-                        Zapnutím spolubydlení snížíte své výdaje na pouhých{' '}
+                        Zapnutím spolubydlení (holý nájem {formatCzechNumber(roomRentAmount)} Kč + energie napůl) snížíte své výdaje na pouhých{' '}
                         <strong className="text-price-tier1">{formatCzechNumber(netCostWithRoommate)} Kč/měs.</strong> a také vyřešíte bytovou situaci hned 2 lidem :)
                       </p>
                       <button
                         onClick={() => setRentOutRoom(true)}
                         className="text-[11px] font-bold text-navy hover:underline pt-0.5 block"
                       >
-                        + Zapnout pronájem pokoje kamarádovi (+{formatCzechNumber(roomRentAmount)} Kč/měs.)
+                        + Zapnout pronájem pokoje kamarádovi (+{formatCzechNumber(roomRentAmount)} Kč holý nájem + energie napůl)
                       </button>
                     </div>
                   )}

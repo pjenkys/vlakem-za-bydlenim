@@ -163,6 +163,9 @@ export interface MonthlyIncomeBreakdown {
   roomRentGross: number;
   roomRentTaxMonthly: number;
   roomRentNet: number;
+  roomPureRent?: number;
+  roommateUtilitiesShare?: number;
+  roommateTotalPayment?: number;
   totalIncomeAndOffsets: number;
 }
 
