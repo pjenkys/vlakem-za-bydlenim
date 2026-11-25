@@ -133,11 +133,11 @@ export const CASE_STUDY_LOCATION: VerifiedLocationData = {
 };
 
 export const CASE_STUDY_RAIL: RailConnectionData = {
-  trainLine: 'R20 Labe (rychlík)',
+  trainLine: 'R20 Labe / S4',
   carrier: 'České dráhy',
-  destination: 'Praha hl.n.',
+  destination: 'Praha-Podbaba (56 min) / Praha hl.n. (68 min)',
   durationMinutes: 68,
-  lastDirectTrainFromPrague: '23:41',
+  lastDirectTrainFromPrague: '00:15',
   peakFrequencyNote: 'Přímý rychlík každých 60 min, posilové vlaky ve špičce každých 30 min',
   regularSingleTripCzk: 169, // Jedna cesta plné jízdné bez karty
   in50SingleTripCzk: 84.5,   // S In Kartou 50 stojí jedna cesta polovinu (84,50 Kč)
