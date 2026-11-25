@@ -77,13 +77,16 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
   // --- Property Appreciation State ---
   const [appreciationPercent, setAppreciationPercent] = useState(3.0); // Default 3.0% p.a.
 
+  const lovosicePricePerSqm = useMemo(() => {
+    return Math.round(purchasePrice / CASE_STUDY_LISTING.usableAreaSqm);
+  }, [purchasePrice]);
+
   // --- Operating Expenses State (defaults based on listing & Lovosice reality) ---
   const [expensesCollapsed, setExpensesCollapsed] = useState(false);
   const [hoaRepairFund, setHoaRepairFund] = useState(CASE_STUDY_LISTING.hoaRepairFundCzk);
   const [heatingAndHotWater, setHeatingAndHotWater] = useState(1800);
   const [waterAndSewer, setWaterAndSewer] = useState(700);
   const [electricity, setElectricity] = useState(1300);
-  const [gas, setGas] = useState(0);
   const [hoaServicesAndAdmin, setHoaServicesAndAdmin] = useState(650);
   const [insurance, setInsurance] = useState(300);
   const [internetAndFees, setInternetAndFees] = useState(700);
@@ -156,14 +159,13 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
   }, [mortgage.interestPaidYear4, ownerOccupiedRatio]);
 
   // 5. Shared Operating Expenses & Roommate Utility Share (50/50 split of consumable services)
-  // Shared items: dálkové vytápění & TUV, vodné a stočné, elektřina byt, plyn, služby SVJ (úklid, osvětlení, správa), pojištění, internet & koncese.
+  // Shared items: dálkové vytápění & TUV, vodné a stočné, elektřina byt, služby SVJ (úklid, osvětlení, správa), pojištění, internet & koncese.
   // Owner-only items: fond oprav SVJ (1 400 Kč), daň z nemovitosti (120 Kč), rezerva na údržbu (500 Kč) hradí 100 % majitel.
   const sharedOperatingExpenses = useMemo(() => {
     return (
       heatingAndHotWater +
       waterAndSewer +
       electricity +
-      gas +
       hoaServicesAndAdmin +
       insurance +
       internetAndFees
@@ -172,7 +174,6 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     heatingAndHotWater,
     waterAndSewer,
     electricity,
-    gas,
     hoaServicesAndAdmin,
     insurance,
     internetAndFees,
@@ -222,7 +223,6 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
       heatingAndHotWater +
       waterAndSewer +
       electricity +
-      gas +
       hoaServicesAndAdmin +
       insurance +
       internetAndFees +
@@ -236,7 +236,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
       heatingAndHotWater,
       waterAndSewer,
       electricity,
-      gas,
+      gas: 0,
       hoaServicesAndAdmin,
       insurancePropertyAndHome: insurance,
       internetAndBroadcastFees: internetAndFees,
@@ -251,7 +251,6 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     heatingAndHotWater,
     waterAndSewer,
     electricity,
-    gas,
     hoaServicesAndAdmin,
     insurance,
     internetAndFees,
@@ -412,20 +411,20 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 {formatCzechNumber(purchasePrice)}&nbsp;Kč
               </div>
               <div className="text-[11px] font-mono text-price-tier2 font-semibold mt-0.5">
-                {formatCzechNumber(CASE_STUDY_LISTING.priceCzkPerSqm)} Kč / m²
+                {formatCzechNumber(lovosicePricePerSqm)} Kč / m²
               </div>
             </div>
 
             <div className="bg-white rounded-xl border border-hairline p-4 shadow-xs">
               <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted block mb-1 flex items-center gap-1">
                 <Train className="w-3.5 h-3.5 text-navy" />
-                Dojezd do Prahy hl.n.
+                Dojezd do Prahy
               </span>
               <div className="text-xl md:text-2xl font-mono font-extrabold text-navy tabular-nums">
-                68 min
+                56–68 min
               </div>
               <div className="text-[11px] text-ink-muted mt-0.5">
-                Rychlík R20 Labe (každou hodinu)
+                Rychlík R20 Labe (Podbaba 56 min · hl.n. 68 min)
               </div>
             </div>
 
@@ -448,10 +447,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 Poslední vlak z Prahy
               </span>
               <div className="text-xl md:text-2xl font-mono font-extrabold text-navy tabular-nums">
-                23:41
+                00:15
               </div>
               <div className="text-[11px] text-emerald-800 font-semibold mt-0.5">
-                Stíháte večeři, divadlo i pivo
+                R20 ve 23:10, noční Os v 00:15 — stíháte večeři i divadlo
               </div>
             </div>
           </div>
@@ -730,7 +729,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                   Vítězná varianta
                 </span>
                 <h3 className="font-bold text-sm text-ink">Vlastní 2+1 v Lovosicích + vlak</h3>
-                <span className="text-[11px] font-mono text-price-tier1 font-bold">60 189 Kč / m²</span>
+                <span className="text-[11px] font-mono text-price-tier1 font-bold">
+                  {formatCzechNumber(lovosicePricePerSqm)} Kč / m²
+                </span>
               </div>
 
               <div className="space-y-1.5 font-mono tabular-nums">
@@ -816,15 +817,16 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
                   <span>
-                    <strong>Komfortní noční návrat:</strong> Poslední přímý vlak z Prahy hl.n. odjíždí
-                    ve <strong>23:41</strong>. V Lovosicích jste v 00:49 a za 3 minuty ležíte v posteli.
+                    <strong>Komfortní noční návrat:</strong> Poslední rychlík R20 z Prahy hl.n. odjíždí
+                    ve <strong>23:10</strong> (v Lovosicích 00:10) a poslední noční vlak z Masarykova n. v{' '}
+                    <strong>00:15</strong> (v Lovosicích 01:29) — za 3 minuty ležíte v posteli.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
                   <span>
-                    <strong>Práce ve vlaku:</strong> Rychlíky R20 nabízejí zásuvky 230V a Wi-Fi. 68 minut
-                    jízdy se započítává do produktivního pracovního času.
+                    <strong>Práce ve vlaku:</strong> Rychlíky R20 nabízejí zásuvky 230V a Wi-Fi. Cesta
+                    (56 min na Podbabu, 68 min na hl.n.) se započítává do produktivního pracovního času.
                   </span>
                 </div>
               </div>
@@ -1220,17 +1222,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">6. Plyn (50/50):</span>
-                        <input
-                          type="number"
-                          step={50}
-                          value={gas}
-                          onChange={(e) => setGas(Number(e.target.value))}
-                          className="w-24 bg-paper border border-hairline rounded px-2 py-0.5 font-mono text-right font-bold"
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-ink">7. Služby SVJ (úklid, správa – 50/50):</span>
+                        <span className="text-ink">6. Služby SVJ (úklid, správa – 50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1240,7 +1232,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">8. Pojištění (50/50):</span>
+                        <span className="text-ink">7. Pojištění (50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1250,7 +1242,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">9. Internet & koncese (50/50):</span>
+                        <span className="text-ink">8. Internet & koncese (50/50):</span>
                         <input
                           type="number"
                           step={50}
@@ -1260,7 +1252,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-ink">10. Daň z nemovitostí (majitel):</span>
+                        <span className="text-ink">9. Daň z nemovitostí (majitel):</span>
                         <input
                           type="number"
                           step={10}
@@ -1289,23 +1281,19 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         <span className="font-mono font-medium">{formatCzechNumber(electricity)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">6. Plyn (vaření – dělí se 50/50):</span>
-                        <span className="font-mono font-medium">{formatCzechNumber(gas)} Kč</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">7. Služby SVJ & správa (úklid, osvětlení – 50/50):</span>
+                        <span className="font-semibold text-ink">6. Služby SVJ & správa (úklid, osvětlení – 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(hoaServicesAndAdmin)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">8. Pojištění nemovitosti & domácnosti (dělí se 50/50):</span>
+                        <span className="font-semibold text-ink">7. Pojištění nemovitosti & domácnosti (dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(insurance)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">9. Internet + TV/rozhlas poplatky (dělí se 50/50):</span>
+                        <span className="font-semibold text-ink">8. Internet + TV/rozhlas poplatky (dělí se 50/50):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(internetAndFees)} Kč</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">10. Daň z nemovitých věcí (100 % hradí majitel):</span>
+                        <span className="font-semibold text-ink">9. Daň z nemovitých věcí (100 % hradí majitel):</span>
                         <span className="font-mono font-medium">{formatCzechNumber(propertyTaxMonthly)} Kč</span>
                       </div>
                     </>
@@ -1319,7 +1307,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                         onChange={(e) => setIncludeMaintenanceReserve(e.target.checked)}
                         className="accent-navy"
                       />
-                      <span>11. Rezerva na údržbu bytu (100 % hradí majitel):</span>
+                      <span>10. Rezerva na údržbu bytu (100 % hradí majitel):</span>
                     </label>
                     <span className="font-mono font-medium">{formatCzechNumber(maintenanceReserveAmount)} Kč</span>
                   </div>
@@ -1327,7 +1315,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
                 {/* Train commute item */}
                 <div className="p-3 bg-navy/5 rounded-lg border border-navy/20 flex items-center justify-between font-bold text-navy">
-                  <span>12. Dojíždění vlakem do Prahy ({formatDaysCz(tripsPerWeek)}):</span>
+                  <span>11. Dojíždění vlakem do Prahy ({formatDaysCz(tripsPerWeek)}):</span>
                   <span className="font-mono text-sm">
                     {formatCzechNumber(commute.effectiveMonthlyCost)} Kč / měs.
                   </span>
@@ -1545,7 +1533,11 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                     </div>
 
                     <div className="pt-2 border-t border-price-tier1/20 text-ink/80 leading-relaxed text-[11px]">
-                      Při 3% ročním zhodnocení byt naroste o <strong>{formatCzechNumber(equity.annualAppreciationCzk)} Kč ročně</strong>.
+                      Při{' '}
+                      {appreciationPercent % 1 === 0
+                        ? `${appreciationPercent}%`
+                        : `${appreciationPercent.toFixed(1).replace('.', ',')}%`}{' '}
+                      ročním zhodnocení byt naroste o <strong>{formatCzechNumber(equity.annualAppreciationCzk)} Kč ročně</strong>.
                       Spolu se splátkou jistiny se vám každý měsíc zhodnotí majetek o <strong>{formatCzechNumber(equity.totalMonthlyEquityCreated)} Kč</strong>!
                     </div>
                   </div>

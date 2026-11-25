@@ -135,9 +135,9 @@ export const CASE_STUDY_LOCATION: VerifiedLocationData = {
 export const CASE_STUDY_RAIL: RailConnectionData = {
   trainLine: 'R20 Labe (rychlík)',
   carrier: 'České dráhy',
-  destination: 'Praha hl.n.',
-  durationMinutes: 68,
-  lastDirectTrainFromPrague: '23:41',
+  destination: 'Praha-Podbaba / Praha hl.n.',
+  durationMinutes: 68, // 56 min Praha-Podbaba, 68 min Praha hl.n.
+  lastDirectTrainFromPrague: '00:15', // R20 ve 23:10 z hl.n., Os 6928 v 00:15 z Masarykova n.
   peakFrequencyNote: 'Přímý rychlík každých 60 min, posilové vlaky ve špičce každých 30 min',
   regularSingleTripCzk: 169, // Jedna cesta plné jízdné bez karty
   in50SingleTripCzk: 84.5,   // S In Kartou 50 stojí jedna cesta polovinu (84,50 Kč)
