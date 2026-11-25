@@ -17,6 +17,7 @@ import { Station, HubInfo, HousingMode, ApartmentSize, APARTMENT_SIZE_MAP, Train
 import { ResolvedPragueConnection } from '../utils/pragueRouting';
 import {
   calculateStationMetrics,
+  getHubBaselinePricePerSqm,
   formatCzechNumber,
   formatPriceDiffBadge,
 } from '../utils/calculations';
@@ -264,12 +265,12 @@ export const StationDetail: React.FC<StationDetailProps> = ({
 
           {/* Baseline comparison */}
           <div className="text-xs text-ink-muted flex items-center justify-between px-1">
-            <span>Základní úroveň {hub.label}:</span>
+            <span>Základní úroveň {hub.label} ({APARTMENT_SIZE_MAP[apartmentSize].shortLabel}):</span>
             <span className="font-mono font-medium text-ink">
               {formatCzechNumber(
-                (mode === 'buy' ? hub.baselineBuyPrice : hub.baselineRentPrice) * apartmentSize
+                getHubBaselinePricePerSqm(hub, mode, apartmentSize) * apartmentSize
               )} Kč
-              {mode === 'rent' ? '/měs.' : ''} ({formatCzechNumber(mode === 'buy' ? hub.baselineBuyPrice : hub.baselineRentPrice)} Kč/m²)
+              {mode === 'rent' ? '/měs.' : ''} ({formatCzechNumber(getHubBaselinePricePerSqm(hub, mode, apartmentSize))} Kč/m²)
             </span>
           </div>
 

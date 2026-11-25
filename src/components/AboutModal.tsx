@@ -58,7 +58,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <strong className="text-ink">Železniční data (JŘ 2026):</strong> Cestovní časy, intervaly ve špičce, první a poslední spoje vychází z reálných jízdních řádů Správy železnic a národních dopravců (České dráhy, RegioJet, Leo Express, Arriva, PID, IDS JMK).
             </li>
             <li>
-              <strong className="text-ink">Ceny nemovitostí:</strong> Mediánové realizované nabídkové ceny bytů (koupě a nájem) k roku 2026 v docházkovém okruhu cca 3,5 km od železniční stanice.
+              <strong className="text-ink">Ceny nemovitostí:</strong> Mediánové nabídkové ceny bytů (koupě a nájem) k roku 2026 ve třech cenových hladinách za m² podle velikosti bytu (1+kk 30 m², 2+kk 45 m², 3+kk 70 m²), neboť menší byty mají vyšší jednotkovou cenu za m².
             </li>
             <li>
               <strong className="text-ink">Hypoteční kalkulace:</strong> Modelováno na standardních parametrech ČNB: 80 % LTV, úroková sazba 4,99 % p.a., splatnost 30 let (360 měsíčních anuitních splátek).

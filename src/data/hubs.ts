@@ -11,6 +11,8 @@ export const HUBS: Record<HubId, HubInfo> = {
     coords: [50.0831, 14.4353],
     baselineBuyPrice: 145000,
     baselineRentPrice: 415,
+    baselineBuyPriceBySize: { 30: 162000, 45: 145000, 70: 132000 },
+    baselineRentPriceBySize: { 30: 505, 45: 415, 70: 355 },
   },
   brno: {
     id: 'brno',
@@ -22,6 +24,8 @@ export const HUBS: Record<HubId, HubInfo> = {
     coords: [49.1906, 16.6128],
     baselineBuyPrice: 122000,
     baselineRentPrice: 365,
+    baselineBuyPriceBySize: { 30: 135000, 45: 122000, 70: 111000 },
+    baselineRentPriceBySize: { 30: 440, 45: 365, 70: 315 },
   },
   plzen: {
     id: 'plzen',
@@ -33,6 +37,8 @@ export const HUBS: Record<HubId, HubInfo> = {
     coords: [49.7436, 13.3883],
     baselineBuyPrice: 92000,
     baselineRentPrice: 295,
+    baselineBuyPriceBySize: { 30: 101000, 45: 92000, 70: 84000 },
+    baselineRentPriceBySize: { 30: 350, 45: 295, 70: 255 },
   },
   ostrava: {
     id: 'ostrava',
@@ -44,6 +50,8 @@ export const HUBS: Record<HubId, HubInfo> = {
     coords: [49.8511, 18.2673],
     baselineBuyPrice: 62000,
     baselineRentPrice: 225,
+    baselineBuyPriceBySize: { 30: 68000, 45: 62000, 70: 57000 },
+    baselineRentPriceBySize: { 30: 265, 45: 225, 70: 195 },
   },
 };
 

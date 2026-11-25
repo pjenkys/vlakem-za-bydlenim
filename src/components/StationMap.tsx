@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Maximize2, Crosshair } from 'lucide-react';
 import { Station, HubInfo, HousingMode, ApartmentSize, APARTMENT_SIZE_MAP, PragueTargetMode, PragueStationId, TrainConnection } from '../types';
-import { getPriceColor, formatCzechNumber, PRICE_TIERS } from '../utils/calculations';
+import { getPriceColor, getStationPricePerSqm, formatCzechNumber, PRICE_TIERS } from '../utils/calculations';
 import { PRAGUE_STATIONS, PRAGUE_STATION_IDS } from '../data/pragueStations';
 import { isResolvedPragueConnection, ResolvedPragueConnection } from '../utils/pragueRouting';
 
@@ -275,7 +275,7 @@ export const StationMap: React.FC<StationMapProps> = ({
       const isSelected = selectedStationId === station.id;
       const isHovered = hoveredStationId === station.id;
 
-      const pricePerSqm = mode === 'buy' ? station.buyPricePerSqm : station.rentPricePerSqm;
+      const pricePerSqm = getStationPricePerSqm(station, mode, apartmentSize);
       const priceColor = getPriceColor(pricePerSqm, mode);
 
       if (isConnected) {

@@ -9,14 +9,14 @@ import { Sidebar } from './components/Sidebar';
 import { StationMap } from './components/StationMap';
 import { AboutModal } from './components/AboutModal';
 import { CaseStudyPage } from './components/CaseStudyPage';
-import { parseTrainTimeInMinutes, calculateStationMetrics } from './utils/calculations';
+import { parseTrainTimeInMinutes, calculateStationMetrics, getStationPricePerSqm } from './utils/calculations';
 
 const DEFAULT_FILTERS: FilterState = {
   maxDurationMin: 120,
   minFrequency: 'all',
   lastTrain: 'any',
-  maxBuyPrice: 150000,
-  maxRentPrice: 450,
+  maxBuyPrice: 170000,
+  maxRentPrice: 520,
   directOnly: false,
   sort: 'value',
 };
@@ -152,11 +152,12 @@ export function App() {
         // 1. Travel time
         if (connection.durationMin > filters.maxDurationMin) return false;
 
-        // 2. Price filter (independent states for buy and rent)
-        if (mode === 'buy' && station.buyPricePerSqm > filters.maxBuyPrice) {
+        // 2. Price filter (independent states for buy and rent, using size-specific Kč/m²)
+        const stationPricePerSqm = getStationPricePerSqm(station, mode, apartmentSize);
+        if (mode === 'buy' && stationPricePerSqm > filters.maxBuyPrice) {
           return false;
         }
-        if (mode === 'rent' && station.rentPricePerSqm > filters.maxRentPrice) {
+        if (mode === 'rent' && stationPricePerSqm > filters.maxRentPrice) {
           return false;
         }
 

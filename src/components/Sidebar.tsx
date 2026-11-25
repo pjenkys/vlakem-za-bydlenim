@@ -98,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const currentPriceMax = mode === 'buy' ? filters.maxBuyPrice : filters.maxRentPrice;
   const priceSliderMin = mode === 'buy' ? 35000 : 150;
-  const priceSliderMax = mode === 'buy' ? 150000 : 450;
+  const priceSliderMax = mode === 'buy' ? 170000 : 520;
   const priceSliderStep = mode === 'buy' ? 5000 : 10;
 
   return (
@@ -230,7 +230,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Price Slider */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-ink">Max. cena za m²:</span>
+                <span className="font-semibold text-ink">
+                  Max. cena za m² ({APARTMENT_SIZE_MAP[apartmentSize].shortLabel}):
+                </span>
                 <span className="font-mono font-bold text-navy tabular-nums bg-paper px-1.5 py-0.5 rounded border border-hairline">
                   {formatCzechNumber(currentPriceMax)} Kč/m²
                 </span>

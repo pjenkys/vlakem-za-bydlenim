@@ -1,4 +1,5 @@
-import { HousingMode, Listing, Station } from '../types';
+import { ApartmentSize, HousingMode, Listing, Station } from '../types';
+import { getStationPricePerSqm } from './calculations';
 
 // Simple deterministic hash for PRNG seeding
 function hashCode(str: string): number {
@@ -70,15 +71,19 @@ const TEMPLATES = [
   },
 ];
 
+function mapLayoutToSizeTier(layout: string): ApartmentSize {
+  if (layout === '1+kk') return 30;
+  if (layout === '2+kk') return 45;
+  return 70;
+}
+
 export function generateStationListings(station: Station, mode: HousingMode): Listing[] {
   const seed = hashCode(`${station.id}_${mode}_listings`);
   const rng = createSeededRandom(seed);
 
-  const basePricePerSqm = mode === 'buy' ? station.buyPricePerSqm : station.rentPricePerSqm;
-
   // We generate 3 listings with distinct layouts and realistic Czech titles
   const listings: Listing[] = [];
-  const chosenIndices = [0, 1, 3]; // 2+kk, 3+1, 3+kk (or variation)
+  const chosenIndices = [2, 0, 3]; // 1+kk, 2+kk, 3+kk
 
   chosenIndices.forEach((templateIdx, i) => {
     const template = TEMPLATES[templateIdx % TEMPLATES.length];
@@ -89,8 +94,9 @@ export function generateStationListings(station: Station, mode: HousingMode): Li
     const areaVariation = Math.floor(rng() * 9) - 4;
     const areaSqm = template.area + areaVariation;
 
-    // Variance in price per sqm
-    const pricePerSqm = Math.round(basePricePerSqm * condition.factor);
+    // Layout-specific unit price tier (1+kk vs 2+kk vs 3+kk) adjusted by condition
+    const sizeTierPricePerSqm = getStationPricePerSqm(station, mode, mapLayoutToSizeTier(template.layout));
+    const pricePerSqm = Math.round(sizeTierPricePerSqm * condition.factor);
 
     let totalPrice = Math.round(pricePerSqm * areaSqm);
     if (mode === 'buy') {

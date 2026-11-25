@@ -1,4 +1,4 @@
-import { HousingMode, HubInfo, Station, TrainConnection, StationCalculatedMetrics } from '../types';
+import { ApartmentSize, HousingMode, HubInfo, Station, TrainConnection, StationCalculatedMetrics } from '../types';
 
 export const PRICE_TIERS = [
   {
@@ -97,6 +97,34 @@ export function calculateMortgageMonthly(propertyPrice: number): number {
 }
 
 /**
+ * Returns size-specific price per m2 for a station (1+kk = 30 m2, 2+kk = 45 m2, 3+kk = 70 m2).
+ */
+export function getStationPricePerSqm(
+  station: Station,
+  mode: HousingMode,
+  size: ApartmentSize
+): number {
+  if (mode === 'buy') {
+    return station.buyPriceBySize?.[size] ?? station.buyPricePerSqm;
+  }
+  return station.rentPriceBySize?.[size] ?? station.rentPricePerSqm;
+}
+
+/**
+ * Returns size-specific baseline price per m2 for a hub city.
+ */
+export function getHubBaselinePricePerSqm(
+  hub: HubInfo,
+  mode: HousingMode,
+  size: ApartmentSize
+): number {
+  if (mode === 'buy') {
+    return hub.baselineBuyPriceBySize?.[size] ?? hub.baselineBuyPrice;
+  }
+  return hub.baselineRentPriceBySize?.[size] ?? hub.baselineRentPrice;
+}
+
+/**
  * Calculates all metrics for a station connected to the active hub.
  */
 export function calculateStationMetrics(
@@ -104,10 +132,10 @@ export function calculateStationMetrics(
   connection: TrainConnection,
   hub: HubInfo,
   mode: HousingMode,
-  sizeSqm: number
+  sizeSqm: ApartmentSize
 ): StationCalculatedMetrics {
-  const pricePerSqm = mode === 'buy' ? station.buyPricePerSqm : station.rentPricePerSqm;
-  const hubBaselinePricePerSqm = mode === 'buy' ? hub.baselineBuyPrice : hub.baselineRentPrice;
+  const pricePerSqm = getStationPricePerSqm(station, mode, sizeSqm);
+  const hubBaselinePricePerSqm = getHubBaselinePricePerSqm(hub, mode, sizeSqm);
 
   const totalApartmentPrice = pricePerSqm * sizeSqm;
   const hubTotalApartmentPrice = hubBaselinePricePerSqm * sizeSqm;

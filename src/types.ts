@@ -29,6 +29,8 @@ export type LastTrainFilter = 'any' | 'after21' | 'after22' | 'after23';
 
 export type SortOption = 'value' | 'price' | 'time' | 'savings';
 
+export type PriceBySize = Record<ApartmentSize, number>;
+
 export interface HubInfo {
   id: HubId;
   label: string;
@@ -39,6 +41,8 @@ export interface HubInfo {
   coords: [number, number];
   baselineBuyPrice: number;
   baselineRentPrice: number;
+  baselineBuyPriceBySize: PriceBySize;
+  baselineRentPriceBySize: PriceBySize;
 }
 
 export interface TrainConnection {
@@ -72,6 +76,8 @@ export interface Station {
   coords: [number, number];
   buyPricePerSqm: number;
   rentPricePerSqm: number;
+  buyPriceBySize?: PriceBySize;
+  rentPriceBySize?: PriceBySize;
   connections: Partial<Record<HubId, TrainConnection>>;
   isDetailOnly?: boolean;
 }
