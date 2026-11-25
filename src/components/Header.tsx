@@ -129,7 +129,88 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Global Controls Bar */}
-        <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {/* Target Hub Switcher (shown in map view) */}
+          {currentView === 'map' && (
+            <div className="flex items-center gap-1 bg-paper p-1 rounded-lg border border-hairline">
+              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider pl-1.5 hidden xl:inline">
+                Cíl:
+              </span>
+              {HUB_IDS.map((hubId) => {
+                const hub = HUBS[hubId];
+                const isActive = activeHub === hubId;
+                return (
+                  <button
+                    key={hubId}
+                    onClick={() => onHubChange(hubId)}
+                    className={`px-2.5 xl:px-3 py-1 font-semibold rounded-md transition-all ${
+                      isActive
+                        ? 'bg-navy text-white shadow-sm'
+                        : 'text-ink-muted hover:text-ink hover:bg-white/60'
+                    }`}
+                  >
+                    {hub.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Mode Switcher: Buy vs Rent */}
+          {currentView === 'map' && (
+            <div className="flex items-center bg-paper p-1 rounded-lg border border-hairline">
+              <button
+                onClick={() => onModeChange('buy')}
+                className={`flex items-center gap-1 px-2.5 py-1 font-semibold rounded-md transition-all ${
+                  mode === 'buy'
+                    ? 'bg-white text-navy shadow-sm'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Koupě</span>
+              </button>
+              <button
+                onClick={() => onModeChange('rent')}
+                className={`flex items-center gap-1 px-2.5 py-1 font-semibold rounded-md transition-all ${
+                  mode === 'rent'
+                    ? 'bg-white text-navy shadow-sm'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>Nájem</span>
+              </button>
+            </div>
+          )}
+
+          {/* Apartment Size Pills */}
+          {currentView === 'map' && (
+            <div className="flex items-center bg-paper p-1 rounded-lg border border-hairline">
+              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider pl-1.5 pr-1 hidden 2xl:inline">
+                Byt:
+              </span>
+              {APARTMENT_SIZES.map((opt) => {
+                const isActive = apartmentSize === opt.size;
+                return (
+                  <button
+                    key={opt.size}
+                    onClick={() => onApartmentSizeChange(opt.size)}
+                    className={`px-2 py-1 text-xs font-semibold rounded-md transition-all ${
+                      isActive
+                        ? 'bg-white text-navy font-bold shadow-sm'
+                        : 'text-ink-muted hover:text-ink'
+                    }`}
+                    title={opt.label}
+                  >
+                    <span className="hidden xl:inline">{opt.label}</span>
+                    <span className="xl:hidden">{opt.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Back button when viewing case study on desktop/tablet */}
           {currentView === 'case-study' && (
             <button
@@ -141,7 +222,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Main View Switcher (Desktop) */}
+          {/* Main View Switcher (Desktop) - anchored on the right next to About button across both views */}
           <div className="hidden lg:flex items-center bg-paper p-1 rounded-lg border border-hairline">
             <button
               onClick={() => onViewChange('map')}
@@ -167,91 +248,10 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Target Hub Switcher (shown in map view) */}
-          {currentView === 'map' && (
-            <div className="flex items-center gap-1.5 bg-paper p-1 rounded-lg border border-hairline">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider pl-1.5 hidden xl:inline">
-                Cíl:
-              </span>
-              {HUB_IDS.map((hubId) => {
-                const hub = HUBS[hubId];
-                const isActive = activeHub === hubId;
-                return (
-                  <button
-                    key={hubId}
-                    onClick={() => onHubChange(hubId)}
-                    className={`px-3 py-1 font-semibold rounded-md transition-all ${
-                      isActive
-                        ? 'bg-navy text-white shadow-sm'
-                        : 'text-ink-muted hover:text-ink hover:bg-white/60'
-                    }`}
-                  >
-                    {hub.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Mode Switcher: Buy vs Rent */}
-          {currentView === 'map' && (
-            <div className="flex items-center bg-paper p-1 rounded-lg border border-hairline">
-              <button
-                onClick={() => onModeChange('buy')}
-                className={`flex items-center gap-1 px-3 py-1 font-semibold rounded-md transition-all ${
-                  mode === 'buy'
-                    ? 'bg-white text-navy shadow-sm'
-                    : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span>Koupě</span>
-              </button>
-              <button
-                onClick={() => onModeChange('rent')}
-                className={`flex items-center gap-1 px-3 py-1 font-semibold rounded-md transition-all ${
-                  mode === 'rent'
-                    ? 'bg-white text-navy shadow-sm'
-                    : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Nájem</span>
-              </button>
-            </div>
-          )}
-
-          {/* Apartment Size Pills */}
-          {currentView === 'map' && (
-            <div className="flex items-center bg-paper p-1 rounded-lg border border-hairline">
-              <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider pl-1.5 pr-1 hidden sm:inline">
-                Byt:
-              </span>
-              {APARTMENT_SIZES.map((opt) => {
-                const isActive = apartmentSize === opt.size;
-                return (
-                  <button
-                    key={opt.size}
-                    onClick={() => onApartmentSizeChange(opt.size)}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
-                      isActive
-                        ? 'bg-white text-navy font-bold shadow-sm'
-                        : 'text-ink-muted hover:text-ink'
-                    }`}
-                    title={opt.label}
-                  >
-                    <span className="hidden md:inline">{opt.label}</span>
-                    <span className="md:hidden">{opt.shortLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
           {/* About Button on desktop */}
           <button
             onClick={onOpenAbout}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-ink-muted hover:text-navy hover:bg-paper rounded-lg border border-hairline transition-colors font-medium ml-1"
+            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-ink-muted hover:text-navy hover:bg-paper rounded-lg border border-hairline transition-colors font-medium"
           >
             <Info className="w-3.5 h-3.5" />
             <span>O datech</span>
