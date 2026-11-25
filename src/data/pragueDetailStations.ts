@@ -39,7 +39,7 @@ export const PRAGUE_DETAIL_STATIONS: Station[] = [
     rentPricePerSqm: 190,
     isDetailOnly: true,
     connections: {
-      praha: conn('Praha hl.n.', 62, 1, 24, '04:42', '00:15', true, ['ČD']),
+      praha: conn('Praha hl.n.', 62, 1, 24, '04:42', '23:41', true, ['ČD']),
     },
   },
   {
@@ -51,7 +51,7 @@ export const PRAGUE_DETAIL_STATIONS: Station[] = [
     rentPricePerSqm: 180,
     isDetailOnly: true,
     connections: {
-      praha: conn('Praha hl.n.', 45, 2, 34, '04:54', '00:15', true, ['ČD']),
+      praha: conn('Praha hl.n.', 45, 2, 34, '04:54', '23:41', true, ['ČD']),
     },
   },
   {
@@ -63,7 +63,7 @@ export const PRAGUE_DETAIL_STATIONS: Station[] = [
     rentPricePerSqm: 230,
     isDetailOnly: true,
     connections: {
-      praha: conn('Praha Masarykovo n.', 35, 2, 38, '04:38', '00:15', true, ['ČD', 'PID']),
+      praha: conn('Praha Masarykovo n.', 35, 2, 38, '04:38', '22:43', true, ['ČD', 'PID']),
     },
   },
   {
@@ -75,7 +75,7 @@ export const PRAGUE_DETAIL_STATIONS: Station[] = [
     rentPricePerSqm: 310,
     isDetailOnly: true,
     connections: {
-      praha: conn('Praha Masarykovo n.', 21, 4, 58, '04:30', '00:15', true, ['ČD', 'PID']),
+      praha: conn('Praha Masarykovo n.', 21, 4, 58, '04:30', '00:30', true, ['ČD', 'PID']),
     },
   },
 

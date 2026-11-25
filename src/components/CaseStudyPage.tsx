@@ -441,10 +441,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 Poslední vlak z Prahy
               </span>
               <div className="text-xl md:text-2xl font-mono font-extrabold text-navy tabular-nums">
-                00:15
+                23:41
               </div>
               <div className="text-[11px] text-emerald-800 font-semibold mt-0.5">
-                R20 ve 23:10, noční Os v 00:15 — stíháte večeři i divadlo
+                R 670 Labe (Podbaba 23:56 → Lovosice 00:51)
               </div>
             </div>
           </div>
@@ -816,9 +816,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
                   <span>
-                    <strong>Komfortní noční návrat:</strong> Poslední rychlík R20 z Prahy hl.n. odjíždí
-                    ve <strong>23:10</strong> (v Lovosicích 00:10) a noční Os z Masarykova n. v{' '}
-                    <strong>00:15</strong> (v Lovosicích 01:29).
+                    <strong>Komfortní noční návrat:</strong> Poslední rychlík R 670 Labe odjíždí z Prahy hl.n.
+                    ve <strong>23:41</strong> (Holešovice 23:52, <strong>Podbaba 23:56</strong>) a do Lovosic přijíždí v{' '}
+                    <strong>00:51</strong>.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">

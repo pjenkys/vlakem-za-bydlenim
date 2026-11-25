@@ -89,7 +89,7 @@ const BASE_STATIONS: Station[] = [
     buyPricePerSqm: 126000,
     rentPricePerSqm: 375,
     connections: {
-      praha: conn('Praha Masarykovo n.', 14, 4, 64, '04:22', '00:15', true, ['ČD', 'PID']),
+      praha: conn('Praha Masarykovo n.', 14, 4, 64, '04:22', '00:30', true, ['ČD', 'PID']),
     },
   },
   {
@@ -133,7 +133,7 @@ const BASE_STATIONS: Station[] = [
     buyPricePerSqm: 82000,
     rentPricePerSqm: 275,
     connections: {
-      praha: conn('Praha Masarykovo n.', 29, 3, 52, '04:15', '00:15', true, ['ČD', 'PID']),
+      praha: conn('Praha Masarykovo n.', 29, 3, 52, '04:15', '00:30', true, ['ČD', 'PID']),
     },
   },
   {
@@ -244,7 +244,7 @@ const BASE_STATIONS: Station[] = [
     buyPricePerSqm: 68000,
     rentPricePerSqm: 235,
     connections: {
-      praha: conn('Praha hl.n.', 49, 2, 38, '04:35', '00:15', true, ['ČD', 'PID']),
+      praha: conn('Praha hl.n.', 49, 2, 38, '04:35', '23:41', true, ['ČD', 'PID']),
     },
   },
   {
@@ -326,7 +326,7 @@ const BASE_STATIONS: Station[] = [
     buyPricePerSqm: 54000,
     rentPricePerSqm: 205,
     connections: {
-      praha: conn('Praha hl.n.', 58, 2, 36, '04:45', '00:15', true, ['ČD', 'RegioJet']),
+      praha: conn('Praha hl.n.', 58, 2, 36, '04:45', '23:41', true, ['ČD', 'RegioJet']),
     },
   },
   {
@@ -348,7 +348,7 @@ const BASE_STATIONS: Station[] = [
     buyPricePerSqm: 46000,
     rentPricePerSqm: 185,
     connections: {
-      praha: conn('Praha hl.n.', 71, 2, 42, '04:30', '00:15', true, ['ČD', 'RegioJet']),
+      praha: conn('Praha hl.n.', 71, 2, 42, '04:30', '23:41', true, ['ČD', 'RegioJet']),
     },
   },
   {
@@ -359,7 +359,7 @@ const BASE_STATIONS: Station[] = [
     buyPricePerSqm: 44000,
     rentPricePerSqm: 180,
     connections: {
-      praha: conn('Praha hl.n.', 86, 2, 38, '04:15', '23:10', true, ['ČD', 'RegioJet']),
+      praha: conn('Praha hl.n.', 86, 2, 38, '04:15', '23:41', true, ['ČD', 'RegioJet']),
     },
   },
   {

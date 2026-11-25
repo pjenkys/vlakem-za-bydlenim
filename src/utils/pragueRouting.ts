@@ -432,6 +432,38 @@ export const PRAGUE_CORRIDORS: Record<string, PragueCorridorProfile> = {
  * If targetMode is a specific Prague station, checks for direct trains or calculates
  * the optimal cross-Prague transfer with realistic transfer buffer.
  */
+const CORRIDOR_090_R670_STATIONS = new Set([
+  'hnevice',
+  'roudnice-nad-labem',
+  'bohusovice-nad-ohri',
+  'lovosice',
+  'usti-nad-labem',
+  'decin',
+]);
+
+const CORRIDOR_090_OS9600_STATIONS = new Set([
+  'roztoky-u-prahy',
+  'libcice-nad-vltavou',
+  'kralupy-nad-vltavou',
+]);
+
+function resolveLastTrainFromPragueStation(
+  stationId: string,
+  pragueStationId: PragueStationId,
+  baseLastTrain: string
+): string {
+  if (CORRIDOR_090_R670_STATIONS.has(stationId)) {
+    if (pragueStationId === 'podbaba') return '23:56';
+    if (pragueStationId === 'holesovice') return '23:52';
+    if (pragueStationId === 'hln') return '23:41';
+  }
+  if (CORRIDOR_090_OS9600_STATIONS.has(stationId)) {
+    if (pragueStationId === 'podbaba') return '00:42';
+    if (pragueStationId === 'hln') return '00:30';
+  }
+  return baseLastTrain;
+}
+
 export function resolvePragueConnection(
   station: Station,
   baseConn: TrainConnection,
@@ -453,6 +485,11 @@ export function resolvePragueConnection(
       return {
         ...baseConn,
         durationMin,
+        lastTrainFromHub: resolveLastTrainFromPragueStation(
+          station.id,
+          firstId,
+          baseConn.lastTrainFromHub
+        ),
         terminus: firstStation.name,
         targetStationId: firstId,
         targetStationName: firstStation.name,
@@ -487,6 +524,11 @@ export function resolvePragueConnection(
       return {
         ...baseConn,
         durationMin: directDuration,
+        lastTrainFromHub: resolveLastTrainFromPragueStation(
+          station.id,
+          targetMode,
+          baseConn.lastTrainFromHub
+        ),
         terminus: targetStation.name,
         targetStationId: targetMode,
         targetStationName: targetStation.name,

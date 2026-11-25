@@ -344,7 +344,7 @@ export const StationMap: React.FC<StationMapProps> = ({
             </div>
             ${transferBadge}
             <div class="text-[10px] font-mono text-ink-muted">
-              Poslední spoj: <span class="font-bold text-ink">${connection.lastTrainFromHub}</span> · ${connection.peakTrainsPerHour}×/hod
+              Poslední spoj: <span class="font-bold text-ink">${resolved ? resolved.lastTrainFromHub : connection.lastTrainFromHub}</span> · ${connection.peakTrainsPerHour}×/hod
             </div>
             <div class="pt-1 mt-0.5 border-t border-hairline/80 flex items-baseline justify-between gap-3">
               <span class="text-[11px] font-bold text-navy">
