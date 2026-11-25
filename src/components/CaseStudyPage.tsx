@@ -26,17 +26,16 @@ import {
 import {
   CASE_STUDY_LISTING,
   CASE_STUDY_LOCATION,
+  CASE_STUDY_RAIL,
 } from '../data/caseStudyLovosice';
 import {
   CarPreset,
-  calculateCommutingCosts,
   calculateMortgageDetails,
   calculateMortgageTaxRefundMonthly,
   calculateThreeYearProjection,
   calculateEquityBuilding,
   calculatePragueComparison,
   calculateCarFreeSavings,
-  formatDaysCz,
   MonthlyExpensesBreakdown,
   MonthlyIncomeBreakdown,
 } from '../utils/caseStudyMath';
@@ -52,10 +51,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState(0);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
-  // --- Commute State ---
-  const [tripsPerWeek, setTripsPerWeek] = useState(3);
-  const [workingWeeks, setWorkingWeeks] = useState<46 | 50>(46);
-  const [in100Optimized, setIn100Optimized] = useState(true);
+  // --- Commute Constants (fixed IN 100 unlimited pass: 22 000 Kč / rok) ---
+  const trainCommuteAnnual = CASE_STUDY_RAIL.in100AnnualCardCzk; // 22 000 Kč
+  const trainCommuteMonthly = CASE_STUDY_RAIL.in100MonthlyEquivalentCzk; // 1 833 Kč
 
   // --- Financing & Mortgage State ---
   const [purchasePrice, setPurchasePrice] = useState(CASE_STUDY_LISTING.priceCzk);
@@ -116,12 +114,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     return customNetWage;
   }, [wagePreset, customNetWage]);
 
-  // 1. Commute Calculations (IN 50 half-price rule)
-  const commute = useMemo(() => {
-    return calculateCommutingCosts(tripsPerWeek, workingWeeks, in100Optimized);
-  }, [tripsPerWeek, workingWeeks, in100Optimized]);
-
-  // 2. Mortgage Calculations (Default 4.99%)
+  // 1. Mortgage Calculations (Default 4.99%)
   const mortgage = useMemo(() => {
     return calculateMortgageDetails(
       purchasePrice,
@@ -228,7 +221,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
       internetAndFees +
       propertyTaxMonthly +
       maintenanceReserveAmount +
-      commute.effectiveMonthlyCost;
+      trainCommuteMonthly;
 
     return {
       mortgagePayment: mortgage.monthlyPayment,
@@ -242,7 +235,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
       internetAndBroadcastFees: internetAndFees,
       propertyTaxMonthly,
       apartmentMaintenanceReserve: maintenanceReserveAmount,
-      trainCommuteMonthly: commute.effectiveMonthlyCost,
+      trainCommuteMonthly,
       totalGrossExpenses: total,
     };
   }, [
@@ -256,7 +249,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     internetAndFees,
     propertyTaxMonthly,
     maintenanceReserveAmount,
-    commute.effectiveMonthlyCost,
+    trainCommuteMonthly,
   ]);
 
   // 8. Monthly Incomes Summary
@@ -319,10 +312,10 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
     );
   }, [purchasePrice, netMonthlyCost, interestRate]);
 
-  // 9. Car-free Savings Math (linked dynamically to actual annual rail commute cost and car preset)
+  // 9. Car-free Savings Math (linked dynamically to fixed IN 100 annual cost and car preset)
   const carSavings = useMemo(() => {
-    return calculateCarFreeSavings(commute.effectiveAnnualCost, carPreset);
-  }, [commute.effectiveAnnualCost, carPreset]);
+    return calculateCarFreeSavings(trainCommuteAnnual, carPreset);
+  }, [trainCommuteAnnual, carPreset]);
 
   const netCarSavingsYearly = carSavings.netCarFreeSavingsAnnual;
   const netCarSavingsMonthly = carSavings.netCarFreeSavingsMonthly;
@@ -771,38 +764,43 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
         </section>
 
         {/* ========================================================================= */}
-        {/* SECTION 2: VERIFIED LOCATION & 210 M WALKING MAP */}
+        {/* SECTION 2: VERIFIED LOCATION, 210 M WALKING MAP & IN 100 RAIL PASS */}
         {/* ========================================================================= */}
         <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-hairline pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-hairline pb-3">
             <div>
               <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-price-tier1" />
-                <span>Pěší trasa: 3 minuty z perónu až do obýváku</span>
+                <span>Pěší trasa a dojíždění vlakem: 3 minuty na perón + jízdenka IN 100</span>
               </h2>
               <p className="text-xs text-ink-muted mt-0.5">
                 {CASE_STUDY_LOCATION.address} ({CASE_STUDY_LOCATION.svjName})
               </p>
             </div>
-            <span className="text-xs font-mono font-bold text-price-tier1 bg-emerald-50 px-2.5 py-1 rounded-md border border-price-tier1/20">
-              210 m po rovině
-            </span>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="text-xs font-mono font-bold text-price-tier1 bg-emerald-50 px-2.5 py-1 rounded-md border border-price-tier1/20">
+                210 m po rovině
+              </span>
+              <span className="text-xs font-mono font-bold text-navy bg-navy/5 px-2.5 py-1 rounded-md border border-navy/20">
+                {formatCzechNumber(trainCommuteMonthly)} Kč / měs.
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-7">
               <CaseStudyWalkingMap />
             </div>
 
             <div className="lg:col-span-5 space-y-3 text-xs leading-relaxed">
-              <div className="p-3.5 rounded-xl bg-paper border border-hairline space-y-2">
+              <div className="p-3.5 rounded-xl bg-paper border border-hairline space-y-1.5">
                 <h3 className="font-bold text-sm text-navy flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4" />
                   Proč jsou 3 minuty chůze zásadní faktor?
                 </h3>
                 <p className="text-ink-muted">
                   Většina dojíždějících v Praze stráví 15 až 25 minut pouhou cestou na stanici metra
-                  nebo čekáním na příměstský autobus. Zde vyjdete z bytu a za 180 sekund sedíte ve vlaku.
+                  nebo čekáním na autobus. Zde vyjdete z bytu a za 180 sekund sedíte ve vlaku.
                 </p>
               </div>
 
@@ -810,238 +808,46 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
                   <span>
-                    <strong>Nulové náklady na MHD v Lovosicích:</strong> Žádné auto, žádná parkovací
-                    stání u nádraží, žádná předplatní jízdenka na místní autobusy.
+                    <strong>Nulové náklady na MHD v Lovosicích:</strong> Žádné auto, žádné parkovné
+                    u nádraží, žádná místní lítačka.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
                   <span>
                     <strong>Komfortní noční návrat:</strong> Poslední rychlík R20 z Prahy hl.n. odjíždí
-                    ve <strong>23:10</strong> (v Lovosicích 00:10) a poslední noční vlak z Masarykova n. v{' '}
-                    <strong>00:15</strong> (v Lovosicích 01:29) — za 3 minuty ležíte v posteli.
+                    ve <strong>23:10</strong> (v Lovosicích 00:10) a noční Os z Masarykova n. v{' '}
+                    <strong>00:15</strong> (v Lovosicích 01:29).
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-4 h-4 text-price-tier1 flex-shrink-0 mt-0.5" />
                   <span>
-                    <strong>Práce ve vlaku:</strong> Rychlíky R20 nabízejí zásuvky 230V a Wi-Fi. Cesta
-                    (56 min na Podbabu, 68 min na hl.n.) se započítává do produktivního pracovního času.
+                    <strong>Práce ve vlaku:</strong> Rychlíky R20 nabízejí 230V zásuvky a Wi-Fi. Cesta
+                    (56 min Podbaba, 68 min hl.n.) je produktivní čas.
                   </span>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
 
-        {/* ========================================================================= */}
-        {/* SECTION 3: INTERACTIVE COMMUTING CALCULATOR (IN 50 vs. IN 100) */}
-        {/* ========================================================================= */}
-        <section className="bg-white rounded-2xl border border-hairline p-5 md:p-6 shadow-xs space-y-5">
-          <div className="flex items-center justify-between border-b border-hairline pb-3">
-            <div>
-              <h2 className="text-base md:text-lg font-bold text-ink flex items-center gap-2">
-                <Train className="w-4 h-4 text-navy" />
-                <span>Kalkulátor dojíždění vlakem do Prahy (IN 50 poloviční cena vs. IN 100)</span>
-              </h2>
-              <p className="text-xs text-ink-muted mt-0.5">
-                Plná jednosměrná jízdenka: 169 Kč · S kartou IN 50 stojí jedna jízda polovinu (84,50 Kč), tam i zpět tedy 169 Kč
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 bg-paper p-1 rounded-lg border border-hairline text-xs font-semibold">
-              <span className="text-[10px] text-ink-muted px-1">Týdnů/rok:</span>
-              <button
-                onClick={() => setWorkingWeeks(46)}
-                className={`px-2 py-0.5 rounded transition-all ${
-                  workingWeeks === 46 ? 'bg-navy text-white' : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                46 (dovolená)
-              </button>
-              <button
-                onClick={() => setWorkingWeeks(50)}
-                className={`px-2 py-0.5 rounded transition-all ${
-                  workingWeeks === 50 ? 'bg-navy text-white' : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                50
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive Controls & Cards */}
-          <div className="space-y-4">
-            <div className="p-4 bg-paper rounded-xl border border-hairline space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-ink">
-                  Počet pracovních dnů v Praze týdně (tam i zpět):
-                </label>
-                <span className="text-sm font-mono font-bold text-navy bg-white px-2.5 py-1 rounded-md border border-hairline">
-                  {formatDaysCz(tripsPerWeek)} ({tripsPerWeek * workingWeeks * 2} jednotlivých jízd za rok)
-                </span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={7}
-                step={1}
-                value={tripsPerWeek}
-                onChange={(e) => setTripsPerWeek(Number(e.target.value))}
-                className="w-full h-2 bg-hairline rounded-lg appearance-none cursor-pointer accent-navy"
-              />
-              <div className="flex justify-between text-[10px] text-ink-muted font-mono">
-                <span>1 den / týden</span>
-                <span>3 dny (hybrid)</span>
-                <span>5 dní (denní režim)</span>
-                <span>7 dní (víkendy)</span>
-              </div>
-            </div>
-
-            {/* Smart Optimization Banner (if IN 50 > 22 000 Kč) */}
-            {commute.shouldRecommendIn100 && (
-              <div className="p-4 bg-emerald-50 border border-price-tier1/30 rounded-xl space-y-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5">
-                    <Sparkles className="w-5 h-5 text-price-tier1 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-xs md:text-sm text-price-tier1">
-                        Doporučení: Vyplatí se přejít na celosíťovou jízdenku IN 100!
-                      </h4>
-                      <p className="text-xs text-ink/80 mt-0.5 leading-relaxed">
-                        Při {tripsPerWeek} {tripsPerWeek === 1 ? 'dni' : tripsPerWeek < 5 ? 'dnech' : 'dnech'} v Praze týdně byste s In Kartou 50 zaplatili{' '}
-                        <strong>{formatCzechNumber(commute.in50AnnualCost)} Kč/rok</strong> (karta 3 200 Kč + jízdenky). Síťová
-                        jízdenka <strong>IN 100 stojí pevně 22 000 Kč/rok</strong> — ušetříte{' '}
-                        <strong>{formatCzechNumber(commute.annualSavingsWithIn100)} Kč ročně</strong> a
-                        navíc máte všechny vlaky ČD po celé ČR (včetně víkendů a výletů) zcela zdarma!
-                      </p>
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-price-tier1/30 text-xs font-bold text-price-tier1 flex-shrink-0 select-none shadow-2xs">
-                    <input
-                      type="checkbox"
-                      checked={in100Optimized}
-                      onChange={(e) => setIn100Optimized(e.target.checked)}
-                      className="accent-emerald-700 w-4 h-4 cursor-pointer"
-                    />
-                    <span>Zastropovat na 22 000 Kč</span>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* Side-by-side comparison cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div
-                className={`p-4 rounded-xl border transition-all ${
-                  !commute.shouldRecommendIn100 || !in100Optimized
-                    ? 'bg-white border-navy ring-1 ring-navy/20 shadow-xs'
-                    : 'bg-paper/60 border-hairline text-ink-muted'
-                }`}
-              >
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-hairline">
-                  <span className="font-bold text-xs text-ink uppercase tracking-wider">
-                    Varianta A: In Karta 50 (50 % sleva)
+              {/* Integrated IN 100 Card */}
+              <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-price-tier1/30 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-price-tier1/20">
+                  <span className="font-bold text-xs text-price-tier1 flex items-center gap-1.5">
+                    <Train className="w-3.5 h-3.5" />
+                    Celosíťová jízdenka IN 100 (ČD)
                   </span>
-                  <span className="text-[10px] font-mono font-medium">84,50 Kč / cesta (169 Kč tam i zpět)</span>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span>Měsíční náklad (průměr):</span>
-                    <span className="font-mono font-bold text-ink">
-                      {formatCzechNumber(commute.in50MonthlyCost)} Kč / měs.
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Celkem za rok ({workingWeeks} týdnů):</span>
-                    <span className="font-mono font-semibold text-ink">
-                      {formatCzechNumber(commute.in50AnnualCost)} Kč / rok
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className={`p-4 rounded-xl border transition-all ${
-                  commute.shouldRecommendIn100 && in100Optimized
-                    ? 'bg-white border-price-tier1 ring-1 ring-price-tier1/20 shadow-xs'
-                    : 'bg-paper/60 border-hairline text-ink-muted'
-                }`}
-              >
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-hairline">
-                  <span className="font-bold text-xs text-price-tier1 uppercase tracking-wider">
-                    Varianta B: Celosíťová IN 100 (100 % sleva)
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-price-tier1 bg-emerald-50 px-1.5 py-0.5 rounded">
-                    Doporučeno
+                  <span className="font-mono font-extrabold text-sm text-price-tier1">
+                    {formatCzechNumber(trainCommuteMonthly)} Kč / měs.
                   </span>
                 </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span>Měsíční náklad (pevný):</span>
-                    <span className="font-mono font-bold text-price-tier1">
-                      {formatCzechNumber(commute.in100MonthlyCost)} Kč / měs.
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Celkem za rok (neomezeně):</span>
-                    <span className="font-mono font-semibold text-price-tier1">
-                      {formatCzechNumber(commute.in100AnnualCost)} Kč / rok
-                    </span>
-                  </div>
-                </div>
+                <p className="text-[11px] text-ink/85 leading-relaxed">
+                  Neomezené dojíždění do Prahy i všechny ostatní cesty vlaky ČD po celé ČR (včetně víkendů) za pevných{' '}
+                  <strong className="font-mono">{formatCzechNumber(trainCommuteAnnual)} Kč/rok</strong>.
+                </p>
+                <p className="text-[10.5px] text-ink-muted leading-snug">
+                  Od 3 jízd týdně vychází výhodněji než IN 50 (kde zpáteční cesta stojí 169 Kč + karta 3 200 Kč/rok).
+                </p>
               </div>
-            </div>
-
-            {/* Break-even Table Mini Strip */}
-            <div className="overflow-x-auto border border-hairline rounded-lg">
-              <table className="w-full text-[11px] text-left">
-                <thead className="bg-paper text-ink-muted border-b border-hairline font-semibold">
-                  <tr>
-                    <th className="py-2 px-3">Dní v Praze týdně</th>
-                    <th className="py-2 px-3">IN 50 ročně</th>
-                    <th className="py-2 px-3">IN 100 ročně</th>
-                    <th className="py-2 px-3">Doporučená volba</th>
-                    <th className="py-2 px-3 text-right">Rozdíl</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline font-mono tabular-nums">
-                  {commute.breakEvenTable.map((row) => (
-                    <tr
-                      key={row.trips}
-                      className={row.trips === tripsPerWeek ? 'bg-navy/5 font-bold' : ''}
-                    >
-                      <td className="py-1.5 px-3">{row.trips}× / týden</td>
-                      <td className="py-1.5 px-3">{formatCzechNumber(row.in50Annual)} Kč</td>
-                      <td className="py-1.5 px-3">{formatCzechNumber(row.in100Annual)} Kč</td>
-                      <td className="py-1.5 px-3 font-sans font-semibold">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] ${
-                            row.recommended === 'IN 100'
-                              ? 'bg-emerald-50 text-price-tier1'
-                              : 'bg-paper text-ink'
-                          }`}
-                        >
-                          {row.recommended}
-                        </span>
-                      </td>
-                      <td className="py-1.5 px-3 text-right">
-                        {row.diff > 0 ? (
-                          <span className="text-price-tier1 font-semibold">
-                            +{formatCzechNumber(row.diff)} Kč úspora s IN 100
-                          </span>
-                        ) : row.diff < 0 ? (
-                          <span className="text-slate-600 font-semibold">
-                            úspora {formatCzechNumber(Math.abs(row.diff))} Kč s IN 50
-                          </span>
-                        ) : (
-                          <span className="text-ink-muted">0 Kč (stejné)</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         </section>
@@ -1315,9 +1121,9 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
 
                 {/* Train commute item */}
                 <div className="p-3 bg-navy/5 rounded-lg border border-navy/20 flex items-center justify-between font-bold text-navy">
-                  <span>11. Dojíždění vlakem do Prahy ({formatDaysCz(tripsPerWeek)}):</span>
+                  <span>11. Dojíždění vlakem do Prahy (celosíťová IN 100):</span>
                   <span className="font-mono text-sm">
-                    {formatCzechNumber(commute.effectiveMonthlyCost)} Kč / měs.
+                    {formatCzechNumber(trainCommuteMonthly)} Kč / měs.
                   </span>
                 </div>
               </div>
@@ -1974,7 +1780,7 @@ export const CaseStudyPage: React.FC<CaseStudyPageProps> = ({ onBackToMap }) => 
               {/* Crisp 1-line equation linking car costs to live train commute */}
               <div className="p-2.5 bg-paper rounded-lg border border-hairline font-mono text-[11px] text-ink flex items-center justify-between flex-wrap gap-2">
                 <span>
-                  <strong className="text-rose-700">{formatCzechNumber(carSavings.totalCarCostAnnual)} Kč</strong> (provoz auta) − <strong className="text-navy">{formatCzechNumber(commute.effectiveAnnualCost)} Kč</strong> (vlak do Prahy) =
+                  <strong className="text-rose-700">{formatCzechNumber(carSavings.totalCarCostAnnual)} Kč</strong> (provoz auta) − <strong className="text-navy">{formatCzechNumber(trainCommuteAnnual)} Kč</strong> (vlak IN 100) =
                 </span>
                 <span className="font-bold text-price-tier1 text-xs">
                   {formatCzechNumber(netCarSavingsYearly)} Kč / rok čistá úspora ({formatCzechNumber(netCarSavingsMonthly)} Kč / měs.)
